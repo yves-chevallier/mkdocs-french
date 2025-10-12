@@ -73,11 +73,19 @@ Il n'est pas rare de trouver des abréviations éronnées en français. Par exem
 
 ## Ordinaux
 
-Le plugin remplace les ordinaux incorrects. En bon français on ne dit pas `2ème` mais 2^e^, `3ème` mais 3^e^, `1er` mais 1^er^, `1ère` mais 1^re^. Ceci nécessaite l'utilisation de l'extension Markdown:
+Le plugin remplace les ordinaux incorrects. En bon français on ne dit pas <span>2ème</span> mais 2^e^, <span>3ème</span> mais 3^e^, <span>1er</span> mais 1^er^, <span>1ère</span> mais 1^re^. Ceci nécessaite l'utilisation de l'extension Markdown:
 
 ```yaml
 markdown_extensions:
   - pydownx.caret
+```
+
+La configuration s'effectue ainsi:
+
+```yaml
+plugins:
+  - french:
+      ordinals: fix # ou warn ou ignore
 ```
 
 ## Liste
@@ -88,6 +96,13 @@ En français on n'utilise pas le caractère `•` pour les listes à puces mais 
 - Deuxième
 - Troisième
 
+Cette correction est configurable et peut être désactivée :
+
+```yaml
+plugins:
+  - french:
+      lists: fix # ou warn ou ignore
+```
 
 ## Casse et typographie courante
 
@@ -97,6 +112,14 @@ La phrase "J'ai mangé Lundi." est incorrecte, par défaut le comportement est d
 
 ```text
 WARNING -  [fr-typo:casse] index.md: Casse : «Lundi» → «lundi» → «lundi»
+```
+
+La configuration est la suivante:
+
+```yaml
+plugins:
+  - french:
+      typographie: warn # ou fix ou ignore
 ```
 
 ## Ignorer des sections

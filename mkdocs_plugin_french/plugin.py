@@ -3,15 +3,23 @@ from __future__ import annotations
 
 import logging
 import re
+import shutil
 from enum import Enum
 from pathlib import Path
-import shutil
 from typing import Callable, Iterable, Tuple, List, Optional
 
 from bs4 import BeautifulSoup, NavigableString, Comment
-from mkdocs.plugins import BasePlugin
-from mkdocs.config.base import Config
 from mkdocs.config import config_options as c
+from mkdocs.config.base import Config
+from mkdocs.plugins import BasePlugin
+try:  # rich est optionnel pour conserver la compatibilité sans dépendance installée
+    from rich.console import Console
+    from rich.table import Table
+    from rich import box
+except ImportError:  # pragma: no cover - environnement sans rich
+    Console = None
+    Table = None
+    box = None
 
 log = logging.getLogger("mkdocs.plugins.fr_typo")
 
@@ -43,6 +51,7 @@ class FrenchPluginConfig(Config):
     css_scope_selector = c.Type(
         str, default="body"
     )  # pour cibler l’injection marker ::marker
+    summary = c.Type(bool, default=False)
 
     # activer le marquage de lignes pour warn (auto si au moins une règle == warn)
     force_line_markers = c.Type(bool, default=False)
@@ -382,6 +391,8 @@ def iter_text_nodes(soup: BeautifulSoup) -> Iterable[NavigableString]:
 
 class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
     def on_config(self, config, **kwargs):
+        self._collected_warnings: List[dict] = []
+        self._css_temp_created = False
         if self.config.enable_css_bullets:
             self._ensure_css_in_docs(config)
         return config
@@ -583,6 +594,16 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
                 line_info = f"{src_path}:{cur_line}" if cur_line else src_path
                 prev_txt = f" → «{prev}»" if prev else ""
                 log.warning(f"[fr-typo:{name}] {line_info}: {msg}{prev_txt}")
+                if self.config.summary:
+                    self._collected_warnings.append(
+                        {
+                            "rule": name,
+                            "file": src_path,
+                            "line": cur_line,
+                            "message": msg,
+                            "preview": prev,
+                        }
+                    )
             return text
         # fix
         new_text = fixer(text)
@@ -754,7 +775,12 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
 
     def on_post_build(self, config):
         if self.config.enable_css_bullets:
-            self._copy_css(Path(config["site_dir"]) / "css")
+            site_css_dir = Path(config["site_dir"]) / "css"
+            self._copy_css(site_css_dir)
+            if self._css_temp_created:
+                self._cleanup_temp_css(Path(config["docs_dir"]) / "css" / "french.css")
+        if self.config.summary and self._collected_warnings:
+            self._print_summary()
 
     def _css_source_path(self) -> Path:
         return Path(__file__).parent / "css" / "french.css"
@@ -762,8 +788,72 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
     def _ensure_css_in_docs(self, config):
         docs_dir = Path(config["docs_dir"])
         target_dir = docs_dir / "css"
-        self._copy_css(target_dir)
+        target_path = target_dir / "french.css"
+        if not target_path.exists():
+            target_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(self._css_source_path(), target_path)
+            self._css_temp_created = True
 
     def _copy_css(self, dest_dir: Path):
         dest_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy2(self._css_source_path(), dest_dir / "french.css")
+
+    def _cleanup_temp_css(self, temp_path: Path):
+        try:
+            temp_path.unlink()
+        except FileNotFoundError:
+            return
+        parent = temp_path.parent
+        try:
+            next(parent.iterdir())
+        except StopIteration:
+            parent.rmdir()
+
+    def _print_summary(self):
+        if Table is None or Console is None or box is None:
+            self._print_plain_summary()
+            return
+
+        table = Table(
+            title="Résumé des avertissements typographiques",
+            title_style="bold bright_white",
+            header_style="bold magenta",
+            show_lines=True,
+            box=box.ROUNDED,
+            border_style="grey50",
+            row_styles=["grey35", ""],
+            pad_edge=False,
+            padding=(0, 1),
+        )
+        table.add_column("Règle", style="cyan", no_wrap=True)
+        table.add_column("Fichier", style="green")
+        table.add_column("Ligne", justify="right", style="yellow")
+        table.add_column("Message", style="white")
+        table.add_column("Suggestion", style="dim")
+
+        for entry in self._collected_warnings:
+            line = str(entry["line"]) if entry["line"] else "—"
+            suggestion = f"«{entry['preview']}»" if entry["preview"] else ""
+            table.add_row(
+                entry["rule"],
+                entry["file"],
+                line,
+                entry["message"],
+                suggestion,
+            )
+
+        console = Console()
+        console.print(table)
+
+    def _print_plain_summary(self):
+        # fallback texte simple si rich n'est pas disponible
+        header = "Résumé des avertissements typographiques"
+        print("\n" + header)
+        print("-" * len(header))
+        for entry in self._collected_warnings:
+            line = f"Ligne {entry['line']}" if entry["line"] else "Ligne —"
+            suggestion = f" | Suggestion: «{entry['preview']}»" if entry["preview"] else ""
+            print(
+                f"[{entry['rule']}] {entry['file']} ({line}) -> {entry['message']}{suggestion}"
+            )
+        print()

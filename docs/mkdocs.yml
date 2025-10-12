@@ -47,3 +47,4 @@ plugins:
             show_source: true
   - french:
       ligatures: fix
+      summary: true
