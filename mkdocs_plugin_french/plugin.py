@@ -4,6 +4,8 @@ from __future__ import annotations
 import logging
 import re
 from enum import Enum
+from pathlib import Path
+import shutil
 from typing import Callable, Iterable, Tuple, List, Optional
 
 from bs4 import BeautifulSoup, NavigableString, Comment
@@ -380,7 +382,8 @@ def iter_text_nodes(soup: BeautifulSoup) -> Iterable[NavigableString]:
 
 class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
     def on_config(self, config, **kwargs):
-        # rien à modifier côté mkdocs.yml; CSS sera injecté en on_post_page
+        if self.config.enable_css_bullets:
+            self._ensure_css_in_docs(config)
         return config
 
     # Marquage des lignes si nécessaire pour WARN précis
@@ -409,10 +412,159 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
             return markdown
 
         # insère un commentaire HTML par ligne pour pouvoir logger la ligne correspondante
-        lines = markdown.splitlines()
-        for i in range(len(lines)):
-            lines[i] = f"<!--FRL:{i + 1}-->\n{lines[i]}"
-        return "\n".join(lines)
+        lines = markdown.splitlines(keepends=True)
+
+        table_sep_re = re.compile(
+            r"^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$"
+        )
+        fence_re = re.compile(r"^\s*(```|~~~)")
+        list_marker_re = re.compile(r"(?:[-+*]|\d+[.)])\s+")
+
+        def _insert_table_marker(line_no: int, line: str) -> str:
+            # conserve le suffixe de fin de ligne pour le réappliquer après insertion
+            newline = ""
+            if line.endswith("\r\n"):
+                newline = "\r\n"
+                body = line[:-2]
+            elif line.endswith("\n"):
+                newline = "\n"
+                body = line[:-1]
+            elif line.endswith("\r"):
+                newline = "\r"
+                body = line[:-1]
+            else:
+                body = line
+
+            if "|" not in body:
+                return f"<!--FRL:{line_no}-->{line}"
+
+            stripped = body.lstrip()
+            leading_ws = len(body) - len(stripped)
+            if stripped.startswith("|"):
+                pipe_idx = body.find("|", leading_ws)
+                insert_pos = pipe_idx + 1
+            else:
+                pipe_idx = body.find("|")
+                insert_pos = pipe_idx
+
+            return (
+                body[:insert_pos]
+                + f"<!--FRL:{line_no}-->"
+                + body[insert_pos:]
+                + newline
+            )
+
+        def _insert_general_marker(line_no: int, line: str) -> str:
+            newline = ""
+            if line.endswith("\r\n"):
+                newline = "\r\n"
+                body = line[:-2]
+            elif line.endswith("\n"):
+                newline = "\n"
+                body = line[:-1]
+            elif line.endswith("\r"):
+                newline = "\r"
+                body = line[:-1]
+            else:
+                body = line
+
+            if not body:
+                return f"<!--FRL:{line_no}-->{line}"
+
+            pos = 0
+            # indent
+            while pos < len(body) and body[pos] in (" ", "\t"):
+                pos += 1
+
+            # blockquote prefixes (">", possibly multiples)
+            bq_pos = pos
+            while bq_pos < len(body) and body[bq_pos] == ">":
+                bq_pos += 1
+                if bq_pos < len(body) and body[bq_pos] == " ":
+                    bq_pos += 1
+                pos = bq_pos
+
+            # list markers (unordered / ordered)
+            m = list_marker_re.match(body[pos:])
+            if m:
+                pos += m.end()
+
+            # headings (#)
+            if pos < len(body) and body[pos] == "#":
+                level = 0
+                while pos + level < len(body) and body[pos + level] == "#":
+                    level += 1
+                pos += level
+                if pos < len(body) and body[pos] == " ":
+                    pos += 1
+
+            return body[:pos] + f"<!--FRL:{line_no}-->" + body[pos:] + newline
+
+        result: List[str] = []
+        i = 0
+        in_table = False
+        pending_separator = False
+        in_code_block = False
+
+        while i < len(lines):
+            line = lines[i]
+            line_no = i + 1
+            stripped = line.lstrip()
+
+            fence_match = fence_re.match(stripped)
+            if fence_match:
+                in_code_block = not in_code_block
+                in_table = False
+                pending_separator = False
+
+            if pending_separator:
+                result.append(line)
+                pending_separator = False
+                in_table = True
+                i += 1
+                continue
+
+            if fence_match:
+                result.append(line)
+                i += 1
+                continue
+
+            if in_code_block:
+                result.append(line)
+                i += 1
+                continue
+
+            if in_table:
+                if not line.strip():
+                    in_table = False
+                elif in_code_block:
+                    in_table = False
+                elif table_sep_re.match(line):
+                    result.append(line)
+                    i += 1
+                    continue
+                elif "|" in line:
+                    result.append(_insert_table_marker(line_no, line))
+                    i += 1
+                    continue
+                else:
+                    in_table = False
+
+            if (
+                not in_code_block
+                and i + 1 < len(lines)
+                and table_sep_re.match(lines[i + 1])
+                and "|" in line
+            ):
+                result.append(_insert_table_marker(line_no, line))
+                pending_separator = True
+                i += 1
+                continue
+
+            result.append(_insert_general_marker(line_no, line))
+            i += 1
+
+        return "".join(result)
 
     def _apply_rule(
         self,
@@ -455,6 +607,14 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         #    les noeuds entre eux, puis on ajoute leurs descendants à un set `nodes_to_skip`.
         nodes_to_skip = set()
 
+        def _mark_ignore(node):
+            if node is None:
+                return
+            nodes_to_skip.add(node)
+            if hasattr(node, "descendants"):
+                for desc in node.descendants:
+                    nodes_to_skip.add(desc)
+
         # map comment node -> position in document order (approx)
         pos_map = {c: i for i, c in enumerate(comments)}
 
@@ -470,10 +630,7 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
                         # use .next_siblings from c up to c2
                         node = c.next_sibling
                         while node and node is not c2:
-                            # collect text nodes under this node
-                            for desc in (node.descendants if hasattr(node, 'descendants') else []):
-                                nodes_to_skip.add(desc)
-                            nodes_to_skip.add(node)
+                            _mark_ignore(node)
                             node = node.next_sibling
                         break
             elif txt.lower() == "fr-typo-ignore":
@@ -481,14 +638,20 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
                 # or there could be a sibling comment </fr-typo-ignore> later.
                 # Simple heuristic: protect the next text node
                 nxt = c.next_sibling
+                while isinstance(nxt, NavigableString) and not nxt.strip():
+                    nxt = nxt.next_sibling
                 if nxt is not None:
-                    nodes_to_skip.add(nxt)
+                    _mark_ignore(nxt)
 
         # 3) Also protect elements with class/data attribute
-        for el in soup.find_all(attrs={"class": lambda v: v and "fr-typo-ignore" in v.split(),
-                                    "data-fr-typo": lambda v: v == "ignore"}):
-            for desc in el.descendants:
-                nodes_to_skip.add(desc)
+        for el in soup.select(".fr-typo-ignore, [data-fr-typo='ignore']"):
+            _mark_ignore(el)
+
+        # Allow code/span with explicit opt-out classes or attributes
+        for el in soup.select("code.nohighlight, code.fr-typo-ignore, code[data-fr-typo='ignore']"):
+            _mark_ignore(el)
+        for el in soup.select("span.nohighlight, span.fr-typo-ignore, span[data-fr-typo='ignore']"):
+            _mark_ignore(el)
 
         # 4) Then, in the main iteration where you process NavigableString nodes, skip if node in nodes_to_skip
 
@@ -502,6 +665,8 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
 
             if isinstance(node, NavigableString) and not isinstance(node, Comment):
                 parent = node.parent
+                if node in nodes_to_skip or parent in nodes_to_skip:
+                    continue
                 if (
                     not parent
                     or parent.name in SKIP_TAGS
@@ -582,41 +747,23 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         for cmt in comments_to_remove:
             cmt.extract()
 
-        # Injection CSS (puces en “–”) si demandé
-        if self.config.enable_css_bullets:
-            css = self._bullet_css(self.config.css_scope_selector)
-            # injecter <style> avant </head> si possible
-            html_str = str(soup)
-            head_close = "</head>"
-            if head_close in html_str:
-                html_str = html_str.replace(
-                    head_close,
-                    f"<style id='fr-typo-bullets'>\n{css}\n</style>\n{head_close}",
-                )
-                return html_str
-            else:
-                # sinon, ajouter en tout début (fallback)
-                return f"<style id='fr-typo-bullets'>\n{css}\n</style>\n" + html_str
-
         return str(soup)
 
-    @staticmethod
-    def _bullet_css(scope_selector: str) -> str:
-        # Variante ::marker (simple) + fallback “pseudo-bullet” si ::marker est limité par le thème
-        return f"""
-{scope_selector} ul {{ list-style: none; padding-left: 1.25em; }}
-{scope_selector} ul > li {{ position: relative; }}
-{scope_selector} ul > li::before {{
-  content: "–";  /* demi-cadratin */
-  position: absolute;
-  left: -1.25em;
-}}
-/* Si le thème gère bien ::marker, dé-commente pour l'utiliser plutôt que ::before :
-{scope_selector} ul {{ list-style: none; }}
-{scope_selector} ul > li::marker {{ content: "– "; }}
-*/
-        """.strip()
-
     def on_post_page(self, output_content, page, config):
-        # Rien de spécial ici (on a injecté le CSS en on_page_content)
         return output_content
+
+    def on_post_build(self, config):
+        if self.config.enable_css_bullets:
+            self._copy_css(Path(config["site_dir"]) / "css")
+
+    def _css_source_path(self) -> Path:
+        return Path(__file__).parent / "css" / "french.css"
+
+    def _ensure_css_in_docs(self, config):
+        docs_dir = Path(config["docs_dir"])
+        target_dir = docs_dir / "css"
+        self._copy_css(target_dir)
+
+    def _copy_css(self, dest_dir: Path):
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(self._css_source_path(), dest_dir / "french.css")

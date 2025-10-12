@@ -1,14 +1,5 @@
 # MkDocs French Plugin
 
-coeur, foetus, oestrogène.
-oestrogène.
-
-- Premier
-- Deuxième
-- Troisième
-
-Les chevaux sont "géniaux" etc...
-
 ## Ponctuation
 
 En français, les ponctuations doubles sont précédées d'une espace insécable. Markdown ne le gère pas nativement. Si l'éditeur ajoute manuellement une espace comme dans `ceci :`, le risque est que le rendu HTML puisse ajouter une césure de ligne entre le mot et la ponctuation. Inversément, si l'éditeur n'ajoute pas d'espace, le rendu n'est pas correct.
@@ -27,6 +18,9 @@ Une espace insécable est également nécessaire devant les unités et les symbo
 
 Le plugin remplace automatiquement certaines combinaisons de lettres par des ligatures typographiques courantes en français. Par exemple, "oe" est remplacé par "œ" dans des mots comme "coeur", "oeuvre", "boeuf", "oeil", "oeuf", "oesophage" ou "oelacanthe".
 
+/// html | div[style='float: left; width: 50%; text-align: center;']
+
+
 | Mot         | Correction |
 | ----------- | ---------- |
 | <!--fr-typo-ignore-->boeuf<!--/fr-typo-ignore-->       | bœuf       |
@@ -40,6 +34,13 @@ Le plugin remplace automatiquement certaines combinaisons de lettres par des lig
 | <!--fr-typo-ignore-->oe<!--/fr-typo-ignore-->          | œ          |
 | <!--fr-typo-ignore-->oecuménique<!--/fr-typo-ignore--> | œcuménique |
 | <!--fr-typo-ignore-->oedeme<!--/fr-typo-ignore-->      | œdème      |
+
+
+///
+
+/// html | div[style='float: right;width: 50%; text-align: center;']
+| Mot         | Correction |
+| ----------- | ---------- |
 | <!--fr-typo-ignore-->oedipe<!--/fr-typo-ignore-->      | œdipe      |
 | <!--fr-typo-ignore-->oeil<!--/fr-typo-ignore-->        | œil        |
 | <!--fr-typo-ignore-->oeillet<!--/fr-typo-ignore-->     | œillet     |
@@ -52,12 +53,16 @@ Le plugin remplace automatiquement certaines combinaisons de lettres par des lig
 | <!--fr-typo-ignore-->tænia<!--/fr-typo-ignore-->       | tænia      |
 | <!--fr-typo-ignore-->vitae<!--/fr-typo-ignore-->       | vitæ       |
 | <!--fr-typo-ignore-->voeu<!--/fr-typo-ignore-->        | vœu        |
+///
+
+/// html | div[style='clear: both;']
+///
 
 ## Abbréviations
 
 Il n'est pas rare de trouver des abréviations éronnées en français. Par exemple, "M." pour "Monsieur" est correct, mais "Mr." est une abréviation anglaise incorrecte. Le plugin corrige automatiquement certaines abréviations courantes en français. Cela concerne:
 
-- c'est-à-dire (c-a-d)
+- c'est-à-dire (<!--fr-typo-ignore-->c-a-d, c-à-d, c.à-d<!--/fr-typo-ignore--> remplacé par c-a-d)
   - Détection des locutions anglaises (i.e.)
 - par exemple (p.ex.)
   - Détection des locutions anglaises (e.g.)
@@ -77,7 +82,12 @@ markdown_extensions:
 
 ## Liste
 
-En français on n'utilise pas le caractère `•` pour les listes à puces mais le tiret demi-cadratin `–`. Le plugin remplace automatiquement les puces par des tirets.
+En français on n'utilise pas le caractère `•` pour les listes à puces mais le tiret demi-cadratin `–`. Le plugin remplace automatiquement les puces par des tirets :
+
+- Premier
+- Deuxième
+- Troisième
+
 
 ## Casse et typographie courante
 
@@ -89,7 +99,7 @@ La phrase "J'ai mangé Lundi." est incorrecte, par défaut le comportement est d
 WARNING -  [fr-typo:casse] index.md: Casse : «Lundi» → «lundi» → «lundi»
 ```
 
-## Blocs de code et mode mathématique
+## Ignorer des sections
 
 Le plugin n'interfère pas avec les blocs de code (délimités par des backticks triples) ni avec le mode mathématique (délimité par `$...$` ou `$$...$$`). Aucune correction n'est appliquée dans ces contextes.
 
@@ -97,4 +107,8 @@ La *front matter* YAML n'est pas non plus modifiée.
 
 Les liens et URL ne sont pas modifiés non plus.
 
-J'ai mangé Lundi.
+En dehors de ces environnements, il est possible d'ignorer des sections entières en utilisant plusieurs méthodes:
+
+1. Utiliser les balises HTML de commentaire `<!--fr-typo-ignore--> ... <!--/fr-typo-ignore-->` pour entourer la section à ignorer.
+2. Utiliser une entrée HTML `<span> ... </span>` pour ignorer une partie d'une ligne.
+3. Utiliser l'extension `pymdownx.inlinehilite` et utiliser la syntaxe \`...\`{ .nohilight }.

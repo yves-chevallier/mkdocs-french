@@ -31,6 +31,10 @@ markdown_extensions:
   - pymdownx.keys
   - pymdownx.mark
   - pymdownx.tilde
+  - pymdownx.blocks.html
+extra_css:
+  - css/french.css
+
 plugins:
   - search
   - mkdocstrings:
