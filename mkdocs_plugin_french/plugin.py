@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup, NavigableString, Comment
 from mkdocs.config import config_options as c
 from mkdocs.config.base import Config
 from mkdocs.plugins import BasePlugin
-from .constants import SKIP_TAGS, SKIP_PARENTS
+from .constants import SKIP_TAGS, SKIP_PARENTS, DEFAULT_ADMONITION_TRANSLATIONS
 from .rules import ALL_RULES, RuleDefinition
 try:  # rich est optionnel pour conserver la compatibilité sans dépendance installée
     from rich.console import Console
@@ -24,6 +24,13 @@ except ImportError:  # pragma: no cover - environnement sans rich
     box = None
 
 log = logging.getLogger("mkdocs.plugins.fr_typo")
+
+RE_ADMONITION = re.compile(
+    r'''^(?P<indent>\s*)(?P<marker>!!!|\?\?\?\+?)\s+'''
+    r'''(?P<type>[A-Za-z0-9_-]+)'''
+    r'''(?P<options>(?:\s+(?!")[^\s]+)*)'''
+    r'''(?:\s+"(?P<title>[^"]*)")?\s*$'''
+)
 
 # ---------- Config moderne par classe ----------
 
@@ -47,6 +54,8 @@ class FrenchPluginConfig(Config):
     # options diverses
     enable_css_bullets = c.Type(bool, default=True)  # injecte CSS pour puces “–”
     css_scope_selector = c.Type(str, default="body")  # conservé pour compatibilité
+    admonitions = c.Choice((Level.ignore, Level.fix), default=Level.fix)
+    admonition_translations = c.Type(dict, default={})
     summary = c.Type(bool, default=False)
 
     # activer le marquage de lignes pour warn (auto si au moins une règle == warn)
@@ -60,6 +69,11 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
     def on_config(self, config, **kwargs):
         self._collected_warnings: List[dict] = []
         self._css_temp_created = False
+        translations = DEFAULT_ADMONITION_TRANSLATIONS.copy()
+        for key, value in self.config.admonition_translations.items():
+            if value is not None:
+                translations[key.lower()] = value
+        self._admonition_translations = translations
         if self.config.enable_css_bullets:
             self._ensure_css_in_docs(config)
         return config
@@ -193,6 +207,41 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
                     node.replace_with(NavigableString(s))
 
         return str(soup)
+
+    def on_page_markdown(self, markdown, page, config, files):
+        if self.config.admonitions != Level.fix:
+            return markdown
+
+        lines = markdown.splitlines(keepends=True)
+
+        def split_newline(text: str) -> tuple[str, str]:
+            if text.endswith("\r\n"):
+                return text[:-2], "\r\n"
+            if text.endswith("\n"):
+                return text[:-1], "\n"
+            if text.endswith("\r"):
+                return text[:-1], "\r"
+            return text, ""
+
+        for idx, raw in enumerate(lines):
+            body, newline = split_newline(raw)
+            match = RE_ADMONITION.match(body)
+            if not match:
+                continue
+            admonition_type = match.group("type")
+            title = match.group("title")
+            translation = self._admonition_translations.get(admonition_type.lower())
+            if translation is None or (title and title.strip()):
+                continue
+
+            indent = match.group("indent")
+            marker = match.group("marker")
+            options = match.group("options") or ""
+            lines[idx] = (
+                f"{indent}{marker} {admonition_type}{options} \"{translation}\"{newline}"
+            )
+
+        return "".join(lines)
 
     def on_post_page(self, output_content, page, config):
         return output_content

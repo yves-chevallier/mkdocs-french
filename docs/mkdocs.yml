@@ -36,7 +36,7 @@ markdown_extensions:
   - pymdownx.tilde
   - pymdownx.blocks.html
 extra_css:
-  - css/french.css
+  - css/pied-piper.css
 
 plugins:
   - search
@@ -51,3 +51,6 @@ plugins:
   - french:
       ligatures: fix
       summary: true
+      units: fix
+      admonition_translations:
+        pied-piper: "Joueur de flûte"

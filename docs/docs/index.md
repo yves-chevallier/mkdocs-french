@@ -15,7 +15,7 @@ L'apostrophe droite `'` est remplacée par l'apostrophe typographique U+2019 `�
 
 ## Ligatures
 
-Le plugin remplace automatiquement certaines combinaisons de lettres par des ligatures typographiques courantes en français. Par exemple, "oe" est remplacé par "œ" dans des mots comme "coeur", "oeuvre", "boeuf", "oeil", "oeuf", "oesophage" ou "oelacanthe".
+Le plugin remplace automatiquement certaines combinaisons de lettres par des ligatures typographiques courantes en français. Par exemple, "oe" est remplacé par "œ" dans des mots comme "coeur", "oeuvre", "boeuf", "oeil", "oeuf", "oesophage" ou "coelacanthe". Voici la liste complète des mots concernés:
 
 /// html | div[style='float: left; width: 50%; text-align: center;']
 
@@ -49,7 +49,6 @@ Le plugin remplace automatiquement certaines combinaisons de lettres par des lig
 | <!--fr-typo-ignore-->oeuvre<!--/fr-typo-ignore-->      | œuvre      |
 | <!--fr-typo-ignore-->oeuvrer<!--/fr-typo-ignore-->     | œuvrer     |
 | <!--fr-typo-ignore-->soeur<!--/fr-typo-ignore-->       | sœur       |
-| <!--fr-typo-ignore-->tænia<!--/fr-typo-ignore-->       | tænia      |
 | <!--fr-typo-ignore-->vitae<!--/fr-typo-ignore-->       | vitæ       |
 | <!--fr-typo-ignore-->voeu<!--/fr-typo-ignore-->        | vœu        |
 ///
@@ -66,9 +65,9 @@ Il n'est pas rare de trouver des abréviations éronnées en français. Par exem
 - par exemple (p.ex.)
   - Détection des locutions anglaises (e.g.)
 - numéro (n°)
-- madame (Mme)
-- mademoiselle (Mlle)
-- messieurs (MM.)
+- Madame (Mme)
+- Mademoiselle (Mlle)
+- Messieurs (MM.)
 
 ## Ordinaux
 
@@ -137,10 +136,33 @@ plugins:
 
 ## Admonitions
 
+Les admonitions ne sont pas traduites dans MkDocs. Le plugin corrige automatiquement les titres des admonitions standards. Par exemple pour un avertissement:
+
+```markdown
 !!! warning
 
-    Le plugin n'intervient pas dans les admonitions. Si le texte de l'admonition contient des erreurs, elles ne seront pas corrigées.
+    Alerte rouge !
+```
 
+est rendu:
+
+!!! warning
+
+    Alerte rouge !
+
+La configuration est la suivante:
+
+```yaml
+plugins:
+  - french:
+      admonitions: fix # ou warn ou ignore
+      admonition_translations:
+        pied-piper: "Joueur de flûte" # Pour les admonitions personnalisées
+```
+
+!!! pied-piper
+
+    Cause toujours tu m'intéresses !
 
 ## Ignorer des sections
 
