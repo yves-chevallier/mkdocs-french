@@ -3,7 +3,7 @@ NNBSP = "\u202f"  # espace fine insécable
 ELLIPSIS = "\u2026"
 
 SKIP_TAGS = {"code", "pre", "kbd", "samp", "var", "script", "style", "math"}
-SKIP_PARENTS = {"a", "time", "data"}
+SKIP_PARENTS = {"a", "time", "data", "span"}
 
 DEFAULT_ADMONITION_TRANSLATIONS = {
     "note": "Note",

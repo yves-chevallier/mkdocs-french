@@ -1,57 +1,136 @@
 from __future__ import annotations
 
 import re
-from .base import RuleDefinition, RuleResult, regex_finditer
+from typing import List, Tuple
 
-RE_NUM_KG = re.compile(r"(\d)\s*kg\b", re.I)
-RE_NUM_PCT = re.compile(r"(\d)\s*%")
-RE_NUM_EURO = re.compile(r"(\d)\s*€")
-RE_CELSIUS = re.compile(r"(\d)\s*°\s*C", re.I)
-RE_TIME = re.compile(r"(\d)\s*h\s*(\d{2})\b")
+from .base import RuleDefinition, RuleResult
+from ..constants import NBSP, NNBSP
+
+SI_PREFIXES = [
+    "Y",
+    "Z",
+    "E",
+    "P",
+    "T",
+    "G",
+    "M",
+    "k",
+    "h",
+    "da",
+    "d",
+    "c",
+    "m",
+    "µ",
+    "u",
+    "n",
+    "p",
+    "f",
+    "a",
+    "z",
+    "y",
+]
+
+PREFIXED_BASE_UNITS = {
+    "m",
+    "g",
+    "s",
+    "A",
+    "K",
+    "mol",
+    "cd",
+    "Hz",
+    "N",
+    "Pa",
+    "J",
+    "W",
+    "C",
+    "V",
+    "F",
+    "Ω",
+    "Ohm",
+    "S",
+    "Wb",
+    "T",
+    "H",
+    "L",
+    "l",
+    "B",
+    "bit",
+}
+
+NON_PREFIXED_UNITS = {
+    "%",
+    "‰",
+    "ppm",
+    "ppb",
+    "°C",
+    "°F",
+    "°",
+    "rad",
+    "sr",
+    "min",
+    "h",
+    "bar",
+    "atm",
+    "mmHg",
+    "Pa",
+    "dB",
+    "g",
+    "kg",
+    "L",
+    "mL",
+    "kWh",
+    "Wh",
+}
+
+CURRENCY_UNITS = {"€", "$", "£", "¥", "CHF", "CAD", "USD"}
+
+def build_unit_patterns(prefixed_units: set[str]) -> Tuple[re.Pattern, List[str]]:
+    units: set[str] = set()
+    units.update(prefixed_units)
+    units.update(NON_PREFIXED_UNITS)
+    units.update(CURRENCY_UNITS)
+    sorted_units = sorted(units, key=len, reverse=True)
+    escaped_units = [re.escape(u) for u in sorted_units]
+    pattern = re.compile(
+        rf"(?P<number>(?<!\w)\d+(?:[.,]\d+)?)(?P<sep>[\s\u00A0\u202F]*)"
+        rf"(?P<unit>(?:{'|'.join(escaped_units)}))(?![\w%°])"
+    )
+    return pattern, sorted_units
+
+
+PREFIXED_UNITS_EXPANDED: set[str] = set()
+for base in PREFIXED_BASE_UNITS:
+    PREFIXED_UNITS_EXPANDED.add(base)
+    for prefix in SI_PREFIXES:
+        PREFIXED_UNITS_EXPANDED.add(prefix + base)
+
+UNIT_PATTERN, SORTED_UNITS = build_unit_patterns(PREFIXED_UNITS_EXPANDED)
 
 
 def det_units(text: str) -> list[RuleResult]:
-    res: list[RuleResult] = []
-    res += regex_finditer(
-        text,
-        RE_NUM_KG,
-        lambda m: "Unités : «10kg» → «10 kg»",
-        lambda m: f"{m.group(1)} kg",
-    )
-    res += regex_finditer(
-        text,
-        RE_NUM_PCT,
-        lambda m: "Unités : «10%» → «10 %»",
-        lambda m: f"{m.group(1)} %",
-    )
-    res += regex_finditer(
-        text,
-        RE_NUM_EURO,
-        lambda m: "Unités : «10€» → «10 €»",
-        lambda m: f"{m.group(1)} €",
-    )
-    res += regex_finditer(
-        text,
-        RE_CELSIUS,
-        lambda m: "Unités : «10°C» → «10 °C»",
-        lambda m: f"{m.group(1)} °C",
-    )
-    res += regex_finditer(
-        text,
-        RE_TIME,
-        lambda m: "Heure : «14h30» → «14 h 30»",
-        lambda m: f"{m.group(1)} h {m.group(2)}",
-    )
-    return res
+    results: List[RuleResult] = []
+    for match in UNIT_PATTERN.finditer(text):
+        sep = match.group("sep")
+        if NBSP in sep or NNBSP in sep:
+            continue
+        number = match.group("number")
+        unit = match.group("unit")
+        start, end = match.span()
+        preview = f"{number}{NNBSP}{unit}"
+        results.append(
+            (start, end, f"Unités : «{match.group(0)}» → «{preview}»", preview)
+        )
+    return results
 
 
 def fix_units(text: str) -> str:
-    text = RE_NUM_KG.sub(r"\1 kg", text)
-    text = RE_NUM_PCT.sub(r"\1 %", text)
-    text = RE_NUM_EURO.sub(r"\1 €", text)
-    text = RE_CELSIUS.sub(r"\1 °C", text)
-    text = RE_TIME.sub(r"\1 h \2", text)
-    return text
+    def repl(match: re.Match) -> str:
+        number = match.group("number")
+        unit = match.group("unit")
+        return f"{number}{NNBSP}{unit}"
+
+    return UNIT_PATTERN.sub(repl, text)
 
 
 RULE = RuleDefinition(
@@ -60,4 +139,3 @@ RULE = RuleDefinition(
     detector=det_units,
     fixer=fix_units,
 )
-
