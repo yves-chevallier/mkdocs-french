@@ -83,15 +83,15 @@ La configuration s'effectue ainsi:
 ```yaml
 plugins:
   - french:
-      ordinals: fix # ou warn ou ignore
+      ordinaux: fix # ou warn ou ignore
 ```
 
 | Adjectif | Avant | Après |
 | -------- | ----- | ----- |
-| Premier  | <span>1er, 1ier</span>   | 1er |
-| Première | <span>1ère, 1iere, 1^ère^</span> | 1ère |
-| Premières | <span>1ères, 1ieres, 1^ères^</span> | 1ères |
-| Deuxième | <span>2ème, 2ieme, 2^ème^</span> | 2e |
+| Premier  | <span>1er, 1ier</span>   | 1^er^ |
+| Première | <span>1ère, 1iere, 1^ère^</span> | 1^re^ |
+| Premières | <span>1ères, 1ieres, 1^ères^</span> | 1^res^ |
+| Deuxième | <span>2ème, 2ieme, 2^ème^</span> | 2^e^ |
 
 ## Unités
 

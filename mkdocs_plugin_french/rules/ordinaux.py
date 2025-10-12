@@ -1,38 +1,128 @@
 from __future__ import annotations
 
 import re
-from .base import RuleDefinition, RuleResult, regex_finditer
+from typing import Optional
 
-_ORD_1ER = re.compile(r"\b1(?:\^?er)\b", re.I)
-_ORD_1RE = re.compile(r"\b1(?:\^?re|ère)\b", re.I)
-_ORD_EME = re.compile(r"\b([2-9]|[1-9]\d+)\s*(?:\^?e?me|\^?ème|\^?eme)\b", re.I)
+from .base import RuleDefinition, RuleResult
+
+ORDINAL_SUFFIXES = [
+    "ières",
+    "ière",
+    "ieres",
+    "iere",
+    "èmes",
+    "ème",
+    "iemes",
+    "ieme",
+    "ièmes",
+    "ième",
+    "eres",
+    "ere",
+    "ères",
+    "ère",
+    "ers",
+    "er",
+    "ires",
+    "ire",
+    "res",
+    "re",
+    "emes",
+    "eme",
+    "es",
+    "e",
+]
+
+ORDINAL_PATTERN = re.compile(
+    rf"\b(\d+)\s*(?<!\^)({'|'.join(ORDINAL_SUFFIXES)})\b",
+    re.IGNORECASE,
+)
+
+REPLACEMENTS = {
+    "ières": "ires",
+    "ière": "ire",
+    "ieres": "ires",
+    "iere": "ire",
+    "ièmes": "iemes",
+    "ième": "ieme",
+    "èmes": "emes",
+    "ème": "eme",
+    "ires": "res",
+    "ire": "re",
+    "ères": "res",
+    "ère": "re",
+}
+
+FIRST_SUFFIX_MAP = {
+    "er": "er",
+    "ier": "er",
+    "ers": "ers",
+    "iers": "ers",
+    "re": "re",
+    "ire": "re",
+    "res": "res",
+    "ires": "res",
+    "ere": "re",
+    "eres": "res",
+    "eme": "er",
+    "emes": "ers",
+    "e": "er",
+    "es": "ers",
+}
+
+GENERAL_SUFFIX_MAP = {
+    "eme": "e",
+    "emes": "es",
+    "e": "e",
+    "es": "es",
+    "ieme": "e",
+    "iemes": "es",
+}
+
+
+def _normalize_suffix(number: str, suffix: str) -> Optional[str]:
+    normalized = suffix.lower()
+    for original, replacement in sorted(REPLACEMENTS.items(), key=lambda item: -len(item[0])):
+        normalized = normalized.replace(original, replacement)
+
+    if number == "1":
+        return FIRST_SUFFIX_MAP.get(normalized)
+
+    if normalized in {"er", "ers", "re", "res", "ier", "iers", "ire", "ires"}:
+        return None
+
+    return GENERAL_SUFFIX_MAP.get(normalized)
 
 
 def det_ordinaux(text: str) -> list[RuleResult]:
-    out: list[RuleResult] = []
-    out += regex_finditer(
-        text, _ORD_1RE, lambda m: f"Ordinal «{m.group(0)}» → «1re»", lambda m: "1re"
-    )
-    out += regex_finditer(
-        text,
-        _ORD_1ER,
-        lambda m: f"Vérifier «{m.group(0)}» (ok «1er» ; parfois «1re»).",
-        lambda m: "1er",
-    )
-    out += regex_finditer(
-        text,
-        _ORD_EME,
-        lambda m: f"Ordinal «{m.group(0)}» → «{m.group(1)}e»",
-        lambda m: f"{m.group(1)}e",
-    )
-    return out
+    results: list[RuleResult] = []
+    for match in ORDINAL_PATTERN.finditer(text):
+        number = match.group(1)
+        suffix = match.group(2)
+        normalized = _normalize_suffix(number, suffix)
+        if not normalized:
+            continue
+        replacement = f"{number}^{normalized}^"
+        results.append(
+            (
+                match.start(),
+                match.end(),
+                f"Ordinal «{match.group(0)}» → «{replacement}»",
+                replacement,
+            )
+        )
+    return results
 
 
 def fix_ordinaux(text: str) -> str:
-    text = _ORD_1RE.sub("1re", text)
-    text = _ORD_1ER.sub("1er", text)
-    text = _ORD_EME.sub(lambda m: f"{m.group(1)}e", text)
-    return text
+    def repl(match: re.Match) -> str:
+        number = match.group(1)
+        suffix = match.group(2)
+        normalized = _normalize_suffix(number, suffix)
+        if not normalized:
+            return match.group(0)
+        return f"{number}^{normalized}^"
+
+    return ORDINAL_PATTERN.sub(repl, text)
 
 
 RULE = RuleDefinition(
@@ -41,4 +131,3 @@ RULE = RuleDefinition(
     detector=det_ordinaux,
     fixer=fix_ordinaux,
 )
-
