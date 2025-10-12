@@ -1,0 +1,45 @@
+site_name: MkDocs French Plugin
+site_url: https://yves-chevallier.github.io/mkdocs-french/
+site_author: Yves Chevallier
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.top
+    - toc.integrate
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/weather-night
+        name: Basculer en mode sombre
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: Basculer en mode clair
+nav:
+  - Introduction: index.md
+extra:
+  version:
+    provider: mike
+markdown_extensions:
+  - pymdownx.critic
+  - pymdownx.caret
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.tilde
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            line_length: 88
+            show_signature: true
+            show_source: true
+  - french:
+      ligatures: fix
