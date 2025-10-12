@@ -1,5 +1,22 @@
 # MkDocs French Plugin
 
+Ce plugin MkDocs améliore la typographie française et corrige automatiquement certaines erreurs courantes dans les documents Markdown. L'ouvrage de référence pour les conventions typographiques en français est [Petites leçons de typographie](https://jacques-andre.fr/faqtypo/lessons.pdf) de Jacques André.
+
+Le plugin est largement configurable, chaque règle peut être activée ou désactivée, et le comportement peut être ajusté pour corriger automatiquement les erreurs (`fix`), émettre un avertissement (`warn`) ou ignorer la règle (`ignore`).
+
+Les règles traitées sont :
+
+- Corrections de ponctuation (espaces insécables, guillemets, apostrophes, points de suspension, etc.)
+- Diacritiques manquants sur les mots en majuscule (<span>Ecole</span> → École)
+- Locutions étrangères en italique (a capella, de facto, etc.)
+- Ligatures typographiques courantes (œ dans coeur, oeuvre, etc.)
+- Abréviations courantes (M., Mme, p.ex., n°, etc.)
+- Ordinaux (<span>1er</span> → 1^er^)
+- Unités (espaces insécables entre nombres et unités comme 100km)
+- Listes à puces (remplacement de `•` par `–`)
+- Casse et typographie courante (jours, mois, gentilés en minuscule)
+- Traduction des admonitions standard (warning → Avertissement, etc.)
+
 ## Ponctuation
 
 En français, les ponctuations doubles sont précédées d'une espace insécable. Markdown ne le gère pas nativement. Si l'éditeur ajoute manuellement une espace comme dans `ceci :`, le risque est que le rendu HTML puisse ajouter une césure de ligne entre le mot et la ponctuation. Inversément, si l'éditeur n'ajoute pas d'espace, le rendu n'est pas correct.
@@ -23,11 +40,23 @@ Correction des contractions avec la virgule et le point :
 | etc....   | etc.    |
 | m, ...    | m...    |
 
+!!! info
+
+    Les URL comme http:// ou mailto:// ne sont pas modifiées.
+
+La configuration s'effectue ainsi:
+
+```yaml
+plugins:
+  - french:
+      punctuation: fix # ou warn ou ignore
+```
+
 ## Diacritiques
 
-Le plugin peut automatiquement détecter les diacritiques manquants sur les mots en majuscule. Par exemple "<span>Ecole</span>" est corrigé en Ecole. Certains diacritiques ne sont pas facilement disponibles comme la cédille sur le C majuscule "Ç". Le plugin corrigera donc "<span>CA</span>" en "ÇA".
+Le plugin détecte également les diacritiques manquants sur des mots écrits en majuscules ou capitalisés. Par exemple `ECOLE` devient `ÉCOLE`, `Ecole` devient `École` et `CA` devient `ÇA`.
 
-Ce type de correction nécessite de s'appuyer sur un dictionnaire de mots français. Le plugin se base sur Lexique383 (téléchargé et mis en cache au premier usage). Activez cette correction ainsi:
+La correction s'appuie sur le dictionnaire Lexique383 (téléchargé et mis en cache au premier usage) qui répertorie les formes accentuées les plus fréquentes. Activez-la ainsi :
 
 ```yaml
 plugins:
@@ -35,11 +64,12 @@ plugins:
       diacritics: fix # ou warn ou ignore
 ```
 
-Les règles sont les suivantes:
+En mode `warn`, un message est émis sans modifier le texte d'origine. Les mots ambigus (plusieurs formes accentuées possibles) sont volontairement laissés tels quels.
 
-- Les locutions ambiguës comme "LE", "LA", "LES", "SUR" ne sont pas corrigées.
-- Uniquement les lettres capitalisées (première lettre en majuscule) ou en majuscule sont corrigées.
-- En mode `warn`, un message est émis sans modifier le texte d'origine.
+!!! info
+
+    Le fichier Lexique est téléchargé automatiquement et mis en cache;
+    en cas d'environnement sans accès réseau, un jeu de secours réduit est utilisé.
 
 ## Locutions étrangères
 
@@ -180,22 +210,6 @@ plugins:
   - french:
       enable_css_bullets: false
 ```
-
-## Diacritiques
-
-Le plugin détecte également les diacritiques manquants sur des mots écrits en majuscules ou capitalisés. Par exemple `ECOLE` devient `ÉCOLE`, `Ecole` devient `École` et `CA` devient `ÇA`.
-
-La correction s'appuie sur le dictionnaire Lexique383 (téléchargé et mis en cache au premier usage) qui répertorie les formes accentuées les plus fréquentes. Activez-la ainsi :
-
-```yaml
-plugins:
-  - french:
-      diacritics: fix # ou warn ou ignore
-```
-
-En mode `warn`, un message est émis sans modifier le texte d'origine. Les mots ambigus (plusieurs formes accentuées possibles) sont volontairement laissés tels quels.
-
-> ℹ️ Le fichier Lexique est téléchargé automatiquement et mis en cache ; en cas d'environnement sans accès réseau, un jeu de secours réduit est utilisé.
 
 ## Casse et typographie courante
 
