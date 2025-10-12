@@ -12,7 +12,6 @@ Les guillemets français `« »` sont également gérés. Le plugin ajoute une e
 
 L'apostrophe droite `'` est remplacée par l'apostrophe typographique U+2019 `’` pour l'élision comme dans "l'homme" ou "aujourd'hui".
 
-Une espace insécable est également nécessaire devant les unités et les symboles monétaires. Le plugin ajoute une espace insécable (U+202F) avant les unités courantes comme `kg`, `cm`, `m`, `km`, `g`, `L`, `h`, `min`, `s` et les symboles monétaires comme `€`, `$`, `£`, `¥`.
 
 ## Ligatures
 
@@ -86,6 +85,20 @@ La configuration s'effectue ainsi:
 plugins:
   - french:
       ordinals: fix # ou warn ou ignore
+```
+
+## Unités
+
+Le plugin ajoute une espace insécable (U+202F) entre les nombres et les unités courantes comme `kg`, `cm`, `m`, `km`, `g`, `L`, `h`, `min`, `s` et les symboles monétaires comme `€`, `$`, `£`, `¥`.
+
+Par exemple <span>100km</span> est corrigé en 100km.
+
+La configuration s'effectue ainsi:
+
+```yaml
+plugins:
+  - french:
+      units: fix # ou warn ou ignore
 ```
 
 ## Liste
