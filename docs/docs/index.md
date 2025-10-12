@@ -135,6 +135,13 @@ plugins:
       typographie: warn # ou fix ou ignore
 ```
 
+## Admonitions
+
+!!! warning
+
+    Le plugin n'intervient pas dans les admonitions. Si le texte de l'admonition contient des erreurs, elles ne seront pas corrigées.
+
+
 ## Ignorer des sections
 
 Le plugin n'interfère pas avec les blocs de code (délimités par des backticks triples) ni avec le mode mathématique (délimité par `$...$` ou `$$...$$`). Aucune correction n'est appliquée dans ces contextes.

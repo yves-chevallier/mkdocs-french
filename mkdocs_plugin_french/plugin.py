@@ -64,186 +64,6 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
             self._ensure_css_in_docs(config)
         return config
 
-    # Marquage des lignes si nécessaire pour WARN précis
-    _LINE_MARK = re.compile(r"<!--FRL:(\d+)-->")
-
-    def _any_warn_enabled(self) -> bool:
-        cfg = self.config
-        return (
-            any(
-                getattr(cfg, name) == Level.warn
-                for name in (
-                    "abbreviation",
-                    "ordinaux",
-                    "ligatures",
-                    "casse",
-                    "spacing",
-                    "quotes",
-                    "units",
-                )
-            )
-            or cfg.force_line_markers
-        )
-
-    def on_page_markdown(self, markdown, page, config, files):
-        if not self._any_warn_enabled():
-            return markdown
-
-        # insère un commentaire HTML par ligne pour pouvoir logger la ligne correspondante
-        lines = markdown.splitlines(keepends=True)
-
-        table_sep_re = re.compile(
-            r"^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$"
-        )
-        fence_re = re.compile(r"^\s*(```|~~~)")
-        list_marker_re = re.compile(r"(?:[-+*]|\d+[.)])\s+")
-
-        def _insert_table_marker(line_no: int, line: str) -> str:
-            # conserve le suffixe de fin de ligne pour le réappliquer après insertion
-            newline = ""
-            if line.endswith("\r\n"):
-                newline = "\r\n"
-                body = line[:-2]
-            elif line.endswith("\n"):
-                newline = "\n"
-                body = line[:-1]
-            elif line.endswith("\r"):
-                newline = "\r"
-                body = line[:-1]
-            else:
-                body = line
-
-            if "|" not in body:
-                return f"<!--FRL:{line_no}-->{line}"
-
-            stripped = body.lstrip()
-            leading_ws = len(body) - len(stripped)
-            if stripped.startswith("|"):
-                pipe_idx = body.find("|", leading_ws)
-                insert_pos = pipe_idx + 1
-            else:
-                pipe_idx = body.find("|")
-                insert_pos = pipe_idx
-
-            return (
-                body[:insert_pos]
-                + f"<!--FRL:{line_no}-->"
-                + body[insert_pos:]
-                + newline
-            )
-
-        def _insert_general_marker(line_no: int, line: str) -> str:
-            newline = ""
-            if line.endswith("\r\n"):
-                newline = "\r\n"
-                body = line[:-2]
-            elif line.endswith("\n"):
-                newline = "\n"
-                body = line[:-1]
-            elif line.endswith("\r"):
-                newline = "\r"
-                body = line[:-1]
-            else:
-                body = line
-
-            if not body:
-                return f"<!--FRL:{line_no}-->{line}"
-
-            pos = 0
-            # indent
-            while pos < len(body) and body[pos] in (" ", "\t"):
-                pos += 1
-
-            # blockquote prefixes (">", possibly multiples)
-            bq_pos = pos
-            while bq_pos < len(body) and body[bq_pos] == ">":
-                bq_pos += 1
-                if bq_pos < len(body) and body[bq_pos] == " ":
-                    bq_pos += 1
-                pos = bq_pos
-
-            # list markers (unordered / ordered)
-            m = list_marker_re.match(body[pos:])
-            if m:
-                pos += m.end()
-
-            # headings (#)
-            if pos < len(body) and body[pos] == "#":
-                level = 0
-                while pos + level < len(body) and body[pos + level] == "#":
-                    level += 1
-                pos += level
-                if pos < len(body) and body[pos] == " ":
-                    pos += 1
-
-            return body[:pos] + f"<!--FRL:{line_no}-->" + body[pos:] + newline
-
-        result: List[str] = []
-        i = 0
-        in_table = False
-        pending_separator = False
-        in_code_block = False
-
-        while i < len(lines):
-            line = lines[i]
-            line_no = i + 1
-            stripped = line.lstrip()
-
-            fence_match = fence_re.match(stripped)
-            if fence_match:
-                in_code_block = not in_code_block
-                in_table = False
-                pending_separator = False
-
-            if pending_separator:
-                result.append(line)
-                pending_separator = False
-                in_table = True
-                i += 1
-                continue
-
-            if fence_match:
-                result.append(line)
-                i += 1
-                continue
-
-            if in_code_block:
-                result.append(line)
-                i += 1
-                continue
-
-            if in_table:
-                if not line.strip():
-                    in_table = False
-                elif in_code_block:
-                    in_table = False
-                elif table_sep_re.match(line):
-                    result.append(line)
-                    i += 1
-                    continue
-                elif "|" in line:
-                    result.append(_insert_table_marker(line_no, line))
-                    i += 1
-                    continue
-                else:
-                    in_table = False
-
-            if (
-                not in_code_block
-                and i + 1 < len(lines)
-                and table_sep_re.match(lines[i + 1])
-                and "|" in line
-            ):
-                result.append(_insert_table_marker(line_no, line))
-                pending_separator = True
-                i += 1
-                continue
-
-            result.append(_insert_general_marker(line_no, line))
-            i += 1
-
-        return "".join(result)
-
     def _apply_rule(
         self,
         rule: RuleDefinition,
@@ -275,10 +95,6 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
 
     def on_page_content(self, html, page, config, files):
         soup = BeautifulSoup(html, "html.parser")
-
-        # suivi de ligne via commentaires FRL
-        current_line: Optional[int] = None
-        comments_to_remove: List[Comment] = []
 
         IGNORE_START = re.compile(r'FR-IGNORE-START', re.I)
         IGNORE_END   = re.compile(r'FR-IGNORE-END', re.I)
@@ -340,15 +156,12 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
 
         # 4) Then, in the main iteration where you process NavigableString nodes, skip if node in nodes_to_skip
 
-        # on parcourt en profondeur, en mettant à jour la ligne quand on croise un commentaire
+        # on parcourt en profondeur
         for node in soup.descendants:
             if isinstance(node, Comment):
-                m = self._LINE_MARK.fullmatch(str(node).strip())
-                if m:
-                    current_line = int(m.group(1))
-                    comments_to_remove.append(node)
+                continue
 
-            if isinstance(node, NavigableString) and not isinstance(node, Comment):
+            if isinstance(node, NavigableString):
                 parent = node.parent
                 if node in nodes_to_skip or parent in nodes_to_skip:
                     continue
@@ -374,14 +187,10 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
 
                 for rule in ALL_RULES:
                     level = getattr(cfg, rule.config_attr)
-                    s = self._apply_rule(rule, level, s, src_path, current_line)
+                    s = self._apply_rule(rule, level, s, src_path, None)
 
                 if s != node:
                     node.replace_with(NavigableString(s))
-
-        # retirer les commentaires de ligne
-        for cmt in comments_to_remove:
-            cmt.extract()
 
         return str(soup)
 
