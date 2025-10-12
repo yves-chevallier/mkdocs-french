@@ -86,6 +86,13 @@ plugins:
       ordinals: fix # ou warn ou ignore
 ```
 
+| Adjectif | Avant | Après |
+| -------- | ----- | ----- |
+| Premier  | <span>1er, 1ier</span>   | 1er |
+| Première | <span>1ère, 1iere, 1^ère^</span> | 1ère |
+| Premières | <span>1ères, 1ieres, 1^ères^</span> | 1ères |
+| Deuxième | <span>2ème, 2ieme, 2^ème^</span> | 2e |
+
 ## Unités
 
 Le plugin ajoute une espace insécable (U+202F) entre les nombres et les unités courantes comme `kg`, `cm`, `m`, `km`, `g`, `L`, `h`, `min`, `s` et les symboles monétaires comme `€`, `$`, `£`, `¥`.

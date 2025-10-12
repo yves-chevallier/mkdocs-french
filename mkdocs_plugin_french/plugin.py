@@ -6,7 +6,7 @@ import re
 import shutil
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Set
 
 from bs4 import BeautifulSoup, NavigableString, Comment
 from mkdocs.config import config_options as c
@@ -68,14 +68,15 @@ class FrenchPluginConfig(Config):
 class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
     def on_config(self, config, **kwargs):
         self._collected_warnings: List[dict] = []
-        self._css_temp_created = False
+        self._temp_css_created: Set[Path] = set()
         translations = DEFAULT_ADMONITION_TRANSLATIONS.copy()
         for key, value in self.config.admonition_translations.items():
             if value is not None:
                 translations[key.lower()] = value
         self._admonition_translations = translations
         if self.config.enable_css_bullets:
-            self._ensure_css_in_docs(config)
+            self._ensure_css_in_docs(config, ["french-bullet.css"])
+            self._ensure_extra_css(config, ["css/french-bullet.css"])
         return config
 
     def _apply_rule(
@@ -248,39 +249,53 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
 
     def on_post_build(self, config):
         if self.config.enable_css_bullets:
-            site_css_dir = Path(config["site_dir"]) / "css"
-            self._copy_css(site_css_dir)
-            if self._css_temp_created:
-                self._cleanup_temp_css(Path(config["docs_dir"]) / "css" / "french.css")
+            self._copy_css_to_site(config, ["french-bullet.css"])
+            self._cleanup_temp_css()
         if self.config.summary and self._collected_warnings:
             self._print_summary()
 
-    def _css_source_path(self) -> Path:
-        return Path(__file__).parent / "css" / "french.css"
+    def _asset_path(self, filename: str) -> Path:
+        return Path(__file__).parent / "css" / filename
 
-    def _ensure_css_in_docs(self, config):
+    def _ensure_css_in_docs(self, config, filenames: List[str]):
         docs_dir = Path(config["docs_dir"])
         target_dir = docs_dir / "css"
-        target_path = target_dir / "french.css"
-        if not target_path.exists():
-            target_dir.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(self._css_source_path(), target_path)
-            self._css_temp_created = True
+        for filename in filenames:
+            target_path = target_dir / filename
+            if not target_path.exists():
+                target_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(self._asset_path(filename), target_path)
+                self._temp_css_created.add(target_path)
 
-    def _copy_css(self, dest_dir: Path):
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(self._css_source_path(), dest_dir / "french.css")
+    def _copy_css_to_site(self, config, filenames: List[str]):
+        site_css_dir = Path(config["site_dir"]) / "css"
+        site_css_dir.mkdir(parents=True, exist_ok=True)
+        for filename in filenames:
+            shutil.copy2(self._asset_path(filename), site_css_dir / filename)
 
-    def _cleanup_temp_css(self, temp_path: Path):
-        try:
-            temp_path.unlink()
-        except FileNotFoundError:
-            return
-        parent = temp_path.parent
-        try:
-            next(parent.iterdir())
-        except StopIteration:
-            parent.rmdir()
+    def _cleanup_temp_css(self):
+        for temp_path in list(self._temp_css_created):
+            try:
+                temp_path.unlink()
+            except FileNotFoundError:
+                pass
+            parent = temp_path.parent
+            try:
+                next(parent.iterdir())
+            except StopIteration:
+                parent.rmdir()
+            except FileNotFoundError:
+                pass
+            self._temp_css_created.discard(temp_path)
+
+    def _ensure_extra_css(self, config, entries: List[str]):
+        extra_css = config.get("extra_css")
+        if extra_css is None:
+            extra_css = []
+            config["extra_css"] = extra_css
+        for entry in entries:
+            if entry not in extra_css:
+                extra_css.append(entry)
 
     def _print_summary(self):
         if Table is None or Console is None or box is None:

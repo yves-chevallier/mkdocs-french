@@ -52,5 +52,6 @@ plugins:
       ligatures: fix
       summary: true
       units: fix
+      ordinals: fix
       admonition_translations:
         pied-piper: "Joueur de flûte"
