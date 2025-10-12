@@ -40,7 +40,7 @@ def det_diacritics(text: str) -> List[RuleResult]:
         word = match.group(0)
         if not word:
             continue
-        if not (word.isupper() or (word[0].isupper() and word[1:].islower())):
+        if not word.isupper():
             continue
         accented = dictionary.accentize(word)
         if not accented:
@@ -62,7 +62,7 @@ def det_diacritics(text: str) -> List[RuleResult]:
 def fix_diacritics(text: str) -> str:
     def repl(match: re.Match) -> str:
         word = match.group(0)
-        if not (word.isupper() or (word[0].isupper() and word[1:].islower())):
+        if not word.isupper():
             return word
         accented = dictionary.accentize(word)
         if not accented:

@@ -62,6 +62,7 @@ plugins:
             line_length: 88
             show_signature: true
             show_source: true
+  - pills
   - french:
       ligatures: fix
       summary: true

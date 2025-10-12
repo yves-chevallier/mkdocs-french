@@ -225,6 +225,44 @@ def test_on_page_content_respects_ignore_classes(plugin_factory, page):
     assert texts[1] == "Ignorer: test!"
 
 
+def test_on_page_content_keeps_sentence_start_capital(plugin_factory, page):
+    plugin = plugin_factory(
+        abbreviation=Level.ignore,
+        ordinaux=Level.ignore,
+        ligatures=Level.ignore,
+        casse=Level.fix,
+        spacing=Level.ignore,
+        quotes=Level.ignore,
+        units=Level.ignore,
+        diacritics=Level.ignore,
+    )
+    html = "<p>Erreur: Lundi, réunion.</p>"
+
+    result = plugin.on_page_content(html, page, {}, None)
+    soup = BeautifulSoup(result, "html.parser")
+
+    assert soup.p.get_text() == "Erreur: Lundi, réunion."
+
+
+def test_on_page_content_uppercases_countries(plugin_factory, page):
+    plugin = plugin_factory(
+        abbreviation=Level.ignore,
+        ordinaux=Level.ignore,
+        ligatures=Level.ignore,
+        casse=Level.fix,
+        spacing=Level.ignore,
+        quotes=Level.ignore,
+        units=Level.ignore,
+        diacritics=Level.ignore,
+    )
+    html = "<p>voyage en france et espagne</p>"
+
+    result = plugin.on_page_content(html, page, {}, None)
+    soup = BeautifulSoup(result, "html.parser")
+
+    assert soup.p.get_text() == "voyage en France et Espagne"
+
+
 def test_on_post_page_returns_content_as_is(plugin_factory):
     plugin = plugin_factory()
     assert plugin.on_post_page("HTML", None, None) == "HTML"

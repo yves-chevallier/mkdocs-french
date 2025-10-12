@@ -7,7 +7,7 @@ Le plugin est largement configurable, chaque règle peut être activée ou désa
 Les règles traitées sont :
 
 - Corrections de ponctuation (espaces insécables, guillemets, apostrophes, points de suspension, etc.)
-- Diacritiques manquants sur les mots en majuscule (<span>Ecole</span> → École)
+- Diacritiques manquants sur les mots en majuscules (<span>ECOLE</span> → ÉCOLE)
 - Locutions étrangères en italique (a capella, de facto, etc.)
 - Ligatures typographiques courantes (œ dans coeur, oeuvre, etc.)
 - Abréviations courantes (M., Mme, p.ex., n°, etc.)
@@ -21,7 +21,7 @@ Les règles traitées sont :
 
 En français, les ponctuations doubles sont précédées d'une espace insécable. Markdown ne le gère pas nativement. Si l'éditeur ajoute manuellement une espace comme dans `ceci :`, le risque est que le rendu HTML puisse ajouter une césure de ligne entre le mot et la ponctuation. Inversément, si l'éditeur n'ajoute pas d'espace, le rendu n'est pas correct.
 
-Le plugin ajoute automatiquement une espace insécable (U+202F) avant les ponctuations doubles: `; ! ?` et (U+00A0) avant les deux-points `:`.
+Le plugin ajoute automatiquement une espace insécable U+202F avant les ponctuations doubles: `; ! ?` et U+00A0 avant les deux-points `:`.
 
 Les points de suspension `...` sont remplacés par le caractère Unicode U+2026 `…`.
 
@@ -54,7 +54,7 @@ plugins:
 
 ## Diacritiques
 
-Le plugin détecte également les diacritiques manquants sur des mots écrits en majuscules ou capitalisés. Par exemple `ECOLE` devient `ÉCOLE`, `Ecole` devient `École` et `CA` devient `ÇA`.
+Le plugin détecte également les diacritiques manquants sur des mots écrits en majuscules. Par exemple `ECOLE` devient `ÉCOLE` et `CA` devient `ÇA`.
 
 La correction s'appuie sur le dictionnaire Lexique383 (téléchargé et mis en cache au premier usage) qui répertorie les formes accentuées les plus fréquentes. Activez-la ainsi :
 
@@ -213,17 +213,19 @@ plugins:
 
 ## Casse et typographie courante
 
-Les mois, jours, gentilés s'écrivent en minuscule en français. Le plugin peut corriger ou détecter les erreurs courantes.
+Les mois, jours et gentilés s'écrivent en minuscule en français. Le plugin peut corriger ou détecter les erreurs courantes tout en respectant un début de phrase (après un point, un deux-points, etc.), où l'initiale reste naturellement majuscule.
 
-Cette phrase comporte plusieurs erreurs: Lundi, Lucas est venu de france; mais Mardi 5 Novembre, il a rencontré Monsieur Dupont à Paris.
+Les noms de pays prennent une majuscule initiale : France, Suisse, Allemagne, Italie, Espagne...
 
-Les avertissements sont reportés lors de la compilation:
+Cette phrase comporte plusieurs erreurs : Lundi, Lucas est venu de france ; mais Mardi 5 Novembre, il a rencontré Monsieur Dupont, qui est Français à Paris.
+
+Les avertissements sont reportés lors de la compilation :
 
 ```text
-WARNING -  [fr-typo:casse] index.md: Casse : «Lundi» → «lundi» → «lundi»
-WARNING -  [fr-typo:casse] index.md: Casse : «Novembre» → «novembre» → «novembre»
-WARNING -  [fr-typo:casse] index.md: Casse : «Lundi» → «lundi» → «lundi»
-WARNING -  [fr-typo:casse] index.md: Casse : «Mardi» → «mardi» → «mardi»
+WARNING -  [fr-typo:casse] index.md: Casse incorrecte pour «Novembre» → «novembre»
+WARNING -  [fr-typo:casse] index.md: Casse incorrecte pour «Mardi» → «mardi»
+WARNING -  [fr-typo:casse] index.md: Casse incorrecte pour «Français» → «français»
+WARNING -  [fr-typo:casse] index.md: Casse incorrecte pour le pays «france» → «France»
 ```
 
 La configuration est la suivante:
@@ -231,7 +233,7 @@ La configuration est la suivante:
 ```yaml
 plugins:
   - french:
-      typographie: warn # ou fix ou ignore
+      casse: warn # ou fix ou ignore
 ```
 
 ## Admonitions

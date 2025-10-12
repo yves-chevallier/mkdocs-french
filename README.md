@@ -12,7 +12,17 @@
 ![french](https://img.shields.io/badge/french-API-lightgrey.svg?logo=french)
 ![Python](https://img.shields.io/badge/Python-typed-blue.svg?logo=python)
 
-This plugin allows you to fetch and display french summaries in your MkDocs pages. It is compatible with MkDocs Material and MkDocs Books.
+This plugin is meant to improve MkDocs documentation written in French by checking and fixing common typographical and writing issues according to French language rules. It can detect and fix the following common issues:
+
+- Abbreviations (e.g., "M." to "M.", "Dr" to "Dr", etc.)
+- Ordinals (e.g., "1er" to "1er", "2e" to "2e", etc.)
+- Ligatures (e.g., "œ" to "œ", "æ" to "æ", etc.)
+- Case (e.g., "Lundi" to "lundi", "France" to "France", etc.)
+- Spacing (e.g., before punctuation marks)
+- Quotes (e.g., « guillemets »)
+- Units (e.g., "10 km" to "10 km", "5 kg" to "5 kg", etc.)
+- Diacritics (e.g., "é" to "é", "à" to "à", etc.)
+- Admonitions (e.g., translating admonition titles to French)
 
 ## Installation
 
@@ -25,30 +35,10 @@ Activate the plugin in your `mkdocs.yml`:
 ```yaml
 plugins:
   - french:
-      language: "fr"
-      timeout: 5
 ```
 
 Install the plugin using pip:
 
 ```bash
 pip install mkdocs-french
-```
-
-Activate the plugin in your `mkdocs.yml`:
-
-```yaml
-plugins:
-  - french:
-      language: "fr"
-      timeout: 5
-      filename: "links.yml"  # Optional, default is "links.yml"
-```
-
-## Usage
-
-In you pages, when you add a french tag, it will be replaced by the summary of the corresponding french page.
-
-```md
-[MkDocs](https://en.french.org/wiki/MkDocs)
 ```
