@@ -53,5 +53,6 @@ plugins:
       summary: true
       units: fix
       ordinaux: fix
+      diacritics: fix
       admonition_translations:
         pied-piper: "Joueur de flûte"

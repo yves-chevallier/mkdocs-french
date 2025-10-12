@@ -12,6 +12,55 @@ Les guillemets français `« »` sont également gérés. Le plugin ajoute une e
 
 L'apostrophe droite `'` est remplacée par l'apostrophe typographique U+2019 `’` pour l'élision comme dans "l'homme" ou "aujourd'hui".
 
+Correction des contractions avec la virgule et le point :
+
+| Incorrect | Correct |
+| --------- | ------- |
+| ?.        | ?       |
+| !.        | !       |
+| etc..     | etc.    |
+| etc...    | etc.    |
+| etc....   | etc.    |
+| m, ...    | m...    |
+
+## Diacritiques
+
+Le plugin peut automatiquement détecter les diacritiques manquants sur les mots en majuscule. Par exemple "<span>Ecole</span>" est corrigé en Ecole. Certains diacritiques ne sont pas facilement disponibles comme la cédille sur le C majuscule "Ç". Le plugin corrigera donc "<span>CA</span>" en "ÇA".
+
+Ce type de correction nécessite de s'appuyer sur un dictionnaire de mots français. Le plugin se base sur Lexique383 (téléchargé et mis en cache au premier usage). Activez cette correction ainsi:
+
+```yaml
+plugins:
+  - french:
+      diacritics: fix # ou warn ou ignore
+```
+
+Les règles sont les suivantes:
+
+- Les locutions ambiguës comme "LE", "LA", "LES", "SUR" ne sont pas corrigées.
+- Uniquement les lettres capitalisées (première lettre en majuscule) ou en majuscule sont corrigées.
+- En mode `warn`, un message est émis sans modifier le texte d'origine.
+
+## Locutions étrangères
+
+Certaines locutions étrangères comme les suivantes doivent, en français être en italique:
+
+- a capella,
+- de facto,
+- honoris causa,
+- ipso facto,
+- manu militari,
+- sine die.
+
+Le plugin corrige automatiquement ces locutions. La configuration s'effectue ainsi:
+
+```yaml
+plugins:
+  - french:
+      foreign: fix # ou warn ou ignore
+```
+
+Notons que les locutions latines passées dans les usages comme à priori, ad hoc, andante, curriculum vitae... ne sont pas corrigées.
 
 ## Ligatures
 
@@ -20,8 +69,8 @@ Le plugin remplace automatiquement certaines combinaisons de lettres par des lig
 /// html | div[style='float: left; width: 50%; text-align: center;']
 
 
-| Mot         | Correction |
-| ----------- | ---------- |
+| Mot                                                    | Correction |
+| ------------------------------------------------------ | ---------- |
 | <!--fr-typo-ignore-->boeuf<!--/fr-typo-ignore-->       | bœuf       |
 | <!--fr-typo-ignore-->caecum<!--/fr-typo-ignore-->      | cæcum      |
 | <!--fr-typo-ignore-->cænotype<!--/fr-typo-ignore-->    | cænotype   |
@@ -38,19 +87,19 @@ Le plugin remplace automatiquement certaines combinaisons de lettres par des lig
 ///
 
 /// html | div[style='float: right;width: 50%; text-align: center;']
-| Mot         | Correction |
-| ----------- | ---------- |
-| <!--fr-typo-ignore-->oedipe<!--/fr-typo-ignore-->      | œdipe      |
-| <!--fr-typo-ignore-->oeil<!--/fr-typo-ignore-->        | œil        |
-| <!--fr-typo-ignore-->oeillet<!--/fr-typo-ignore-->     | œillet     |
-| <!--fr-typo-ignore-->oesophage<!--/fr-typo-ignore-->   | œsophage   |
-| <!--fr-typo-ignore-->oestrogène<!--/fr-typo-ignore-->  | œstrogène  |
-| <!--fr-typo-ignore-->oeuf<!--/fr-typo-ignore-->        | œuf        |
-| <!--fr-typo-ignore-->oeuvre<!--/fr-typo-ignore-->      | œuvre      |
-| <!--fr-typo-ignore-->oeuvrer<!--/fr-typo-ignore-->     | œuvrer     |
-| <!--fr-typo-ignore-->soeur<!--/fr-typo-ignore-->       | sœur       |
-| <!--fr-typo-ignore-->vitae<!--/fr-typo-ignore-->       | vitæ       |
-| <!--fr-typo-ignore-->voeu<!--/fr-typo-ignore-->        | vœu        |
+| Mot                                                   | Correction |
+| ----------------------------------------------------- | ---------- |
+| <!--fr-typo-ignore-->oedipe<!--/fr-typo-ignore-->     | œdipe      |
+| <!--fr-typo-ignore-->oeil<!--/fr-typo-ignore-->       | œil        |
+| <!--fr-typo-ignore-->oeillet<!--/fr-typo-ignore-->    | œillet     |
+| <!--fr-typo-ignore-->oesophage<!--/fr-typo-ignore-->  | œsophage   |
+| <!--fr-typo-ignore-->oestrogène<!--/fr-typo-ignore--> | œstrogène  |
+| <!--fr-typo-ignore-->oeuf<!--/fr-typo-ignore-->       | œuf        |
+| <!--fr-typo-ignore-->oeuvre<!--/fr-typo-ignore-->     | œuvre      |
+| <!--fr-typo-ignore-->oeuvrer<!--/fr-typo-ignore-->    | œuvrer     |
+| <!--fr-typo-ignore-->soeur<!--/fr-typo-ignore-->      | sœur       |
+| <!--fr-typo-ignore-->vitae<!--/fr-typo-ignore-->      | vitæ       |
+| <!--fr-typo-ignore-->voeu<!--/fr-typo-ignore-->       | vœu        |
 ///
 
 /// html | div[style='clear: both;']
@@ -68,6 +117,15 @@ Il n'est pas rare de trouver des abréviations éronnées en français. Par exem
 - Madame (Mme)
 - Mademoiselle (Mlle)
 - Messieurs (MM.)
+- Confer (cf.)
+
+| Locution          | Invalides                      | Correction |
+| ----------------- | ------------------------------ | ---------- |
+| C'est-à-dire      | i.e. c.a.d c-a-d, c-à-d, c.à-d | c.-à-d.    |
+| Par exemple       | e.g. p.ex. p.ex                | p. ex.     |
+| Numéro            | no. num. n°                    | n°         |
+| Confer            | c.f.                           | cf.        |
+| et collaborateurs | et al.                         | et coll.   |
 
 ## Ordinaux
 
@@ -86,18 +144,18 @@ plugins:
       ordinaux: fix # ou warn ou ignore
 ```
 
-| Adjectif | Avant | Après |
-| -------- | ----- | ----- |
-| Premier  | <span>1er, 1ier</span>   | 1^er^ |
-| Première | <span>1ère, 1iere, 1^ère^</span> | 1^re^ |
+| Adjectif  | Avant                               | Après  |
+| --------- | ----------------------------------- | ------ |
+| Premier   | <span>1er, 1ier</span>              | 1^er^  |
+| Première  | <span>1ère, 1iere, 1^ère^</span>    | 1^re^  |
 | Premières | <span>1ères, 1ieres, 1^ères^</span> | 1^res^ |
-| Deuxième | <span>2ème, 2ieme, 2^ème^</span> | 2^e^ |
+| Deuxième  | <span>2ème, 2ieme, 2^ème^</span>    | 2^e^   |
 
 ## Unités
 
 Le plugin ajoute une espace insécable (U+202F) entre les nombres et les unités courantes comme `kg`, `cm`, `m`, `km`, `g`, `L`, `h`, `min`, `s` et les symboles monétaires comme `€`, `$`, `£`, `¥`.
 
-Par exemple <span>100km</span> est corrigé en 100km.
+Par exemple `100km` est corrigé en `100 km`. Si vous souhaitez conserver la forme originale, entourez la valeur d'un élément ignoré (`<span>100km</span>` par exemple).
 
 La configuration s'effectue ainsi:
 
@@ -120,8 +178,24 @@ Cette correction est configurable et peut être désactivée :
 ```yaml
 plugins:
   - french:
-      lists: fix # ou warn ou ignore
+      enable_css_bullets: false
 ```
+
+## Diacritiques
+
+Le plugin détecte également les diacritiques manquants sur des mots écrits en majuscules ou capitalisés. Par exemple `ECOLE` devient `ÉCOLE`, `Ecole` devient `École` et `CA` devient `ÇA`.
+
+La correction s'appuie sur le dictionnaire Lexique383 (téléchargé et mis en cache au premier usage) qui répertorie les formes accentuées les plus fréquentes. Activez-la ainsi :
+
+```yaml
+plugins:
+  - french:
+      diacritics: fix # ou warn ou ignore
+```
+
+En mode `warn`, un message est émis sans modifier le texte d'origine. Les mots ambigus (plusieurs formes accentuées possibles) sont volontairement laissés tels quels.
+
+> ℹ️ Le fichier Lexique est téléchargé automatiquement et mis en cache ; en cas d'environnement sans accès réseau, un jeu de secours réduit est utilisé.
 
 ## Casse et typographie courante
 

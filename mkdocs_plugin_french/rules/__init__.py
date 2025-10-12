@@ -6,6 +6,7 @@ from .casse import RULE as CASSE_RULE
 from .spacing import RULE as SPACING_RULE
 from .quotes import RULE as QUOTES_RULE
 from .units import RULE as UNITS_RULE
+from .diacritics import RULE as DIACRITICS_RULE
 
 ALL_RULES = [
     ABBREVIATION_RULE,
@@ -15,6 +16,7 @@ ALL_RULES = [
     SPACING_RULE,
     QUOTES_RULE,
     UNITS_RULE,
+    DIACRITICS_RULE,
 ]
 
 __all__ = ["RuleDefinition", "RuleResult", "ALL_RULES"]

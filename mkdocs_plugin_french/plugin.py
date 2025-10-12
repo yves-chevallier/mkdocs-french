@@ -50,6 +50,7 @@ class FrenchPluginConfig(Config):
     spacing = c.Choice((Level.ignore, Level.warn, Level.fix), default=Level.fix)
     quotes = c.Choice((Level.ignore, Level.warn, Level.fix), default=Level.fix)
     units = c.Choice((Level.ignore, Level.warn, Level.fix), default=Level.fix)
+    diacritics = c.Choice((Level.ignore, Level.warn, Level.fix), default=Level.warn)
 
     # options diverses
     enable_css_bullets = c.Type(bool, default=True)  # injecte CSS pour puces “–”
