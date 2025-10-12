@@ -213,12 +213,17 @@ plugins:
 
 ## Casse et typographie courante
 
-Les mois, jours, gentilés s'écrivent en minuscule en français. Le plugin corrige ou détecte les erreurs courantes.
+Les mois, jours, gentilés s'écrivent en minuscule en français. Le plugin peut corriger ou détecter les erreurs courantes.
 
-La phrase "J'ai mangé Lundi." est incorrecte, par défaut le comportement est d'avertir l'utilisateur :
+Cette phrase comporte plusieurs erreurs: Lundi, Lucas est venu de france; mais Mardi 5 Novembre, il a rencontré Monsieur Dupont à Paris.
+
+Les avertissements sont reportés lors de la compilation:
 
 ```text
 WARNING -  [fr-typo:casse] index.md: Casse : «Lundi» → «lundi» → «lundi»
+WARNING -  [fr-typo:casse] index.md: Casse : «Novembre» → «novembre» → «novembre»
+WARNING -  [fr-typo:casse] index.md: Casse : «Lundi» → «lundi» → «lundi»
+WARNING -  [fr-typo:casse] index.md: Casse : «Mardi» → «mardi» → «mardi»
 ```
 
 La configuration est la suivante:
@@ -231,7 +236,7 @@ plugins:
 
 ## Admonitions
 
-Les admonitions ne sont pas traduites dans MkDocs. Le plugin corrige automatiquement les titres des admonitions standards. Par exemple pour un avertissement:
+Les *admonitions* ne sont pas traduites dans MkDocs, ni dans MkDocs Material. Le plugin corrige automatiquement les titres des admonitions standards comme celle d'un avertissement:
 
 ```markdown
 !!! warning
@@ -239,13 +244,13 @@ Les admonitions ne sont pas traduites dans MkDocs. Le plugin corrige automatique
     Alerte rouge !
 ```
 
-est rendu:
+qui est interprêté comme:
 
 !!! warning
 
     Alerte rouge !
 
-La configuration est la suivante:
+Il est possible de configurer le plugin pour traduire les admonitions standards, et spécifier des traductions personnalisées pour des admonitions non standards:
 
 ```yaml
 plugins:
@@ -259,16 +264,28 @@ plugins:
 
     Cause toujours tu m'intéresses !
 
-## Ignorer des sections
+## Désactiver les corrections
 
-Le plugin n'interfère pas avec les blocs de code (délimités par des backticks triples) ni avec le mode mathématique (délimité par `$...$` ou `$$...$$`). Aucune correction n'est appliquée dans ces contextes.
+Le plugin n'interfère pas avec les blocs de code (délimités par des backticks triples) ni avec le mode mathématique. Aucune correction n'est appliquée dans ces contextes. La *front matter* YAML n'est pas non plus modifiée.
 
-La *front matter* YAML n'est pas non plus modifiée.
+En dehors de ces environnements, il est possible d'ignorer des sections entières avec différentes méthodes :
 
-Les liens et URL ne sont pas modifiés non plus.
+1. Utiliser les balises HTML de commentaire `<!--fr-typo-ignore-->`:
 
-En dehors de ces environnements, il est possible d'ignorer des sections entières en utilisant plusieurs méthodes:
+    ```markdown
+    En français, on n'écrit pas
+    "<!--fr-typo-ignore-->LE CONGRES<!--/fr-typo-ignore-->" mais
+    "LE CONGRÈS" si c'est un salon ou "LE CONGRES" si c'est un poisson.
+    ```
 
-1. Utiliser les balises HTML de commentaire `<!--fr-typo-ignore--> ... <!--/fr-typo-ignore-->` pour entourer la section à ignorer.
-2. Utiliser une entrée HTML `<span> ... </span>` pour ignorer une partie d'une ligne.
-3. Utiliser l'extension `pymdownx.inlinehilite` et utiliser la syntaxe \`...\`{ .nohilight }.
+2. Utiliser une entrée HTML `<span> ... </span>` pour ignorer une partie d'une ligne :
+
+    ```markdown
+    Écrire <span>2ème</span> est incorrect en français, on écrit 2^e^.
+    ```
+
+3. Utiliser l'extension `pymdownx.inlinehilite` et utiliser la syntaxe *nohighlight*:
+
+    ```markdown
+    Cette section `n'est pas corrigée`{.nohighlight}.
+    ```

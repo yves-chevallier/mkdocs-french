@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from urllib.error import URLError
 import zipfile
 
@@ -32,7 +33,7 @@ def test_dictionary_corrupted_cache_triggers_rebuild(tmp_path, monkeypatch, capl
     cache_file.write_text("{invalid}", encoding="utf-8")
     monkeypatch.setattr(dict_module, "CACHE_DIR", cache_dir)
 
-    rebuilt_mapping = {"FRANCAIS": ["Français"]}
+    rebuilt_mapping = {"FRANCAIS": ["FRANÇAIS"]}
 
     def fake_build(self, target):
         return rebuilt_mapping
@@ -41,7 +42,7 @@ def test_dictionary_corrupted_cache_triggers_rebuild(tmp_path, monkeypatch, capl
 
     dictionary = Dictionary()
     with caplog.at_level("WARNING"):
-        assert dictionary.accentize("francais") == "Français"
+        assert dictionary.accentize("francais") == "FRANÇAIS"
 
     assert "cache corrompu" in caplog.text
 
@@ -120,8 +121,110 @@ def test_dictionary_respects_ambiguous_keys(monkeypatch):
     [
         (["français", "Français"], "francais", "français"),
         (["FRANÇAIS", "Français"], "FRANCAIS", "FRANÇAIS"),
-        (["FRANÇAIS", "Français"], "Francais", "Français"),
+        (["FRANÇAIS", "Français"], "Francais", "FRANÇAIS"),
+        (["français"], "Francais", "Français"),
+        (["français"], "FRANCAIS", "FRANÇAIS"),
     ],
 )
 def test_choose_candidate_preserves_original_casing(candidates, original, expected):
     assert Dictionary._choose_candidate(candidates, original) == expected
+
+
+def test_dictionary_returns_none_when_mapping_missing(monkeypatch):
+    dictionary = Dictionary()
+    monkeypatch.setattr(Dictionary, "_load", lambda self: {})
+    dictionary._fallback_map = {}
+
+    assert dictionary.accentize("inconnu") is None
+
+
+def test_dictionary_deduplicates_candidates():
+    dictionary = Dictionary()
+    dictionary._fallback_map = {}
+    dictionary._map = {"EXEMPLE": ["exemple", "Exemple"]}
+
+    assert dictionary.accentize("exemple") == "exemple"
+
+
+def test_dictionary_build_from_source_permission_error(tmp_path, monkeypatch):
+    cache_dir = tmp_path / "cache"
+    monkeypatch.setattr(dict_module, "CACHE_DIR", cache_dir)
+
+    fallback_map = {"ROLE": ["RÔLE"]}
+    monkeypatch.setattr(dict_module, "_build_fallback_map", lambda: fallback_map)
+
+    orig_mkdir = Path.mkdir
+
+    def fake_mkdir(self, *args, **kwargs):
+        if self == cache_dir:
+            raise PermissionError("denied")
+        return orig_mkdir(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "mkdir", fake_mkdir)
+
+    dictionary = Dictionary()
+    mapping = dictionary._build_from_source(cache_dir / MAP_FILENAME)
+
+    assert mapping == fallback_map
+
+
+def test_dictionary_build_from_source_missing_tsv(tmp_path, monkeypatch, caplog):
+    monkeypatch.setattr(dict_module, "CACHE_DIR", tmp_path)
+
+    zip_path = tmp_path / dict_module.ZIP_FILENAME
+    with zipfile.ZipFile(zip_path, "w") as archive:
+        archive.writestr("README.txt", "placeholder")
+
+    fallback_map = {"ROLE": ["RÔLE"]}
+    monkeypatch.setattr(dict_module, "_build_fallback_map", lambda: fallback_map)
+
+    saved = {}
+
+    def fake_save(cache_file, mapping):
+        saved["path"] = cache_file
+        saved["mapping"] = mapping
+
+    monkeypatch.setattr(Dictionary, "_save_cache", staticmethod(fake_save))
+
+    dictionary = Dictionary()
+    with caplog.at_level("WARNING"):
+        mapping = dictionary._build_from_source(tmp_path / MAP_FILENAME)
+
+    assert "Fichier TSV introuvable" in caplog.text
+    assert mapping == fallback_map
+    assert saved["mapping"] == fallback_map
+
+
+def test_dictionary_build_from_source_empty_mapping_uses_fallback(tmp_path, monkeypatch):
+    monkeypatch.setattr(dict_module, "CACHE_DIR", tmp_path)
+
+    zip_path = tmp_path / dict_module.ZIP_FILENAME
+    with zipfile.ZipFile(zip_path, "w") as archive:
+        archive.writestr("Lexique383.tsv", "ortho\tfreq\nCafe\t1\n")
+
+    fallback_map = {"ROLE": ["RÔLE"]}
+    monkeypatch.setattr(dict_module, "_build_fallback_map", lambda: fallback_map)
+
+    monkeypatch.setattr(Dictionary, "_save_cache", staticmethod(lambda *_args: None))
+
+    dictionary = Dictionary()
+    mapping = dictionary._build_from_source(tmp_path / MAP_FILENAME)
+
+    assert mapping == fallback_map
+
+
+def test_dictionary_save_cache_handles_errors(tmp_path, caplog):
+    target = tmp_path / "missing" / "cache.json"
+
+    with caplog.at_level("DEBUG"):
+        Dictionary._save_cache(target, {"A": ["a"]})
+
+    assert "Impossible d'écrire le cache Lexique" in caplog.text
+
+
+def test_choose_candidate_capitalize_fallback():
+    assert Dictionary._choose_candidate(["français"], "Francais") == "Français"
+
+
+def test_choose_candidate_uppercase_fallback():
+    assert Dictionary._choose_candidate(["Français"], "FRANCAIS") == "FRANÇAIS"

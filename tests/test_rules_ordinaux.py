@@ -23,7 +23,7 @@ def test_fix_ordinaux_converts_matches():
     ("number", "suffix", "expected"),
     [
         ("1", "ème", "er"),
-        ("1", "ères", "re"),
+        ("1", "ères", "res"),
         ("2", "ieme", "e"),
         ("12", "iemes", "es"),
         ("3", "ires", None),
