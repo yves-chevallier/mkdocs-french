@@ -1,27 +1,34 @@
-ul:not([class]) {
+/* Classless lists outside .no-french */
+ul:not([class]):not(.no-french *) {
   list-style-type: none;
   padding: 0;
   margin: 0;
 }
 
-ul:not([class])>li:not([class]) {
+/* Classless list items outside .no-french */
+ul:not([class]) > li:not([class]):not(.no-french *) {
   position: relative;
-  padding-left: 1.0em;
+  padding-left: 0.6em;
 }
 
-ul:not([class])>li:not([class])::before {
+/* Custom dash bullet outside .no-french */
+ul:not([class]) > li:not([class]):not(.no-french *)::before {
   content: "–";
-  padding-right: 0.5em;
+  width: 0.5em;           /* Keeps bullet width consistent */
+  display: inline-block;  /* Maintains vertical alignment */
+  margin-left: -0.5em;    /* Pulls the dash into the margin */
+  padding-right: 1em;     /* Spacing between dash and text */
   color: var(--md-default-fg-color--light);
-  display: inline-block;
 }
 
-[dir=ltr] .md-typeset ol li,
-[dir=ltr] .md-typeset ul li {
-  margin-left: 1em;
+/* List item margin adjustments outside .no-french */
+[dir="ltr"] .md-typeset ol li:not(.no-french *),
+[dir="ltr"] .md-typeset ul li:not(.no-french *) {
+  margin-left: 0.625em;
 }
 
-ul:not([class]) li:not([class])>p:first-of-type {
+/* Inline first paragraph within classless li outside .no-french */
+ul:not([class]) li:not([class]):not(.no-french *) > p:first-of-type {
   display: inline;
   margin: 0;
 }

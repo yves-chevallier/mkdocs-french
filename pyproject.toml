@@ -5,7 +5,10 @@ description = "Add overlay on french links in MkDocs"
 authors = ["Yves Chevallier <yves.chevallier@heig-vd.ch>"]
 license = "MIT"
 readme = "README.md"
-packages = [{ include = "mkdocs_plugin_french" }]
+packages = [
+    { include = "mkdocs_plugin_french" },
+    { include = "mkdocs_french" },
+]
 keywords = ["mkdocs", "python", "wiki", "french"]
 classifiers = [
     "Development Status :: 4 - Beta",

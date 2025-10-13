@@ -42,3 +42,20 @@ Install the plugin using pip:
 ```bash
 pip install mkdocs-french
 ```
+
+## Données Morphalou pré-générées
+
+Le plugin ne télécharge plus Morphalou à chaque exécution.
+Il charge un artéfact compressé localisé dans `mkdocs_plugin_french/artifacts/morphalou_data.json.gz`.
+Vous pouvez versionner ce fichier pour éviter tout accès réseau pendant la génération du site.
+
+### Générer les artéfacts
+
+Utilisez la commande suivante (en environnement Poetry) :
+
+```bash
+poetry run python -m mkdocs_french build
+```
+
+L’option `--force` permet d’écraser un artéfact existant, et `--output` accepte un chemin personnalisé.
+Dans un pipeline CI, vous pouvez exécuter la commande avant de lancer MkDocs ; elle ne recrée pas le fichier si celui-ci est déjà présent.

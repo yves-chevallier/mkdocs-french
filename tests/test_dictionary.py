@@ -49,7 +49,7 @@ def test_accentize_returns_original_when_ambiguous():
 
 def test_accentize_handles_uppercase_fallback():
     dictionary = Dictionary()
-    dictionary._prepare_attempted = True  # éviter tout téléchargement automatique
+    dictionary._prepare_attempted = True  # avoid automatic downloads during tests
 
     assert dictionary.accentize("NOEL") == "NOËL"
 

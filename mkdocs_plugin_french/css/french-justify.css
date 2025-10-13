@@ -4,4 +4,19 @@
   hyphens: auto;
   overflow-wrap: break-word;
   line-height: 1.6;
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures discretionary-ligatures contextual;
+  font-optical-sizing: auto;
+  font-variant-numeric: oldstyle-nums proportional-nums;
+  hyphenate-character: "-"
+}
+
+h1, h2, h3 {
+  text-wrap: balance;
+}
+
+@supports (hanging-punctuation: first) {
+  blockquote, p.quote, .lede {
+    hanging-punctuation: first allow-end;
+  }
 }

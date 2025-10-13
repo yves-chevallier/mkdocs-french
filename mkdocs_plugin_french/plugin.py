@@ -8,7 +8,8 @@ from enum import Enum
 from pathlib import Path
 from typing import List, Optional, Set
 
-from bs4 import BeautifulSoup, NavigableString, Comment
+from bs4 import BeautifulSoup, Comment
+from bs4.element import NavigableString
 from mkdocs.config import config_options as c
 from mkdocs.config.base import Config
 from mkdocs.config.defaults import MkDocsConfig
@@ -21,11 +22,11 @@ from .constants import (
 )
 from .rules import ALL_RULES, RuleDefinition
 
-try:  # rich est optionnel pour conserver la compatibilité sans dépendance installée
+try:  # rich is optional to keep compatibility without the dependency installed
     from rich.console import Console
     from rich.table import Table
     from rich import box
-except ImportError:  # pragma: no cover - environnement sans rich
+except ImportError:  # pragma: no cover - environment without rich
     Console = None
     Table = None
     box = None
@@ -39,7 +40,7 @@ RE_ADMONITION = re.compile(
     r"""(?:\s+"(?P<title>[^"]*)")?\s*$"""
 )
 
-# ---------- Config moderne par classe ----------
+# ---------- Class-based config ----------
 
 
 class Level(str, Enum):
@@ -49,7 +50,7 @@ class Level(str, Enum):
 
 
 class FrenchPluginConfig(Config):
-    # règles et leurs niveaux
+    # rule levels
     abbreviation = c.Choice((Level.ignore, Level.warn, Level.fix), default=Level.fix)
     ordinaux = c.Choice((Level.ignore, Level.warn, Level.fix), default=Level.fix)
     ligatures = c.Choice((Level.ignore, Level.warn, Level.fix), default=Level.ignore)
@@ -60,15 +61,15 @@ class FrenchPluginConfig(Config):
     diacritics = c.Choice((Level.ignore, Level.warn, Level.fix), default=Level.warn)
     foreign = c.Choice((Level.ignore, Level.warn, Level.fix), default=Level.fix)
 
-    # options diverses
-    justify = c.Type(bool, default=True)  # injecte CSS pour texte justifié et césures
-    enable_css_bullets = c.Type(bool, default=True)  # injecte CSS pour puces “–”
-    css_scope_selector = c.Type(str, default="body")  # conservé pour compatibilité
+    # miscellaneous options
+    justify = c.Type(bool, default=True)  # inject CSS for justification and hyphenation
+    enable_css_bullets = c.Type(bool, default=True)  # inject CSS for dash bullets
+    css_scope_selector = c.Type(str, default="body")  # kept for compatibility
     admonitions = c.Choice((Level.ignore, Level.fix), default=Level.fix)
     admonition_translations = c.Type(dict, default={})
     summary = c.Type(bool, default=False)
 
-    # activer le marquage de lignes pour warn (auto si au moins une règle == warn)
+    # enable line markers when warn is active (auto if any rule == warn)
     force_line_markers = c.Type(bool, default=False)
 
 
@@ -135,15 +136,14 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         return rule.fixer(text)
 
     def on_page_content(self, html, page, config, files):
-        """Traite le HTML généré d'une page."""
+        """Process the generated HTML of a page."""
         soup = BeautifulSoup(html, "html.parser")
 
-        # 1) Préparer : repérer tous les commentaires de type FRL (déjà présent)
+        # 1) Collect FRL marker comments
         comments = list(soup.find_all(string=lambda t: isinstance(t, Comment)))
 
-        # 2) Marquer les noeuds qui sont dans un block ignore
-        #    On parcourt les commentaires et on localise les start/end, en collectant
-        #    les noeuds entre eux, puis on ajoute leurs descendants à un set `nodes_to_skip`.
+        # 2) Mark nodes contained inside ignore blocks
+        #    Iterate over comment pairs, gather the nodes between them, then mark descendants.
         nodes_to_skip = set()
 
         def _mark_ignore(node):
@@ -154,39 +154,35 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
                 for desc in node.descendants:
                     nodes_to_skip.add(desc)
 
-        # map comment node -> position in document order (approx)
+        # Map each comment to its position in document order
         pos_map = {c: i for i, c in enumerate(comments)}
 
-        # find inline and block ignores
+        # Find inline and block ignore directives
         for comment in comments:
             txt = str(comment).strip()
             if txt.lower() == "fr-typo-ignore-start":
-                # find the matching end comment
-                # search subsequent comments for fr-typo-ignore-end
+                # Locate the matching end comment
                 for c2 in comments[pos_map[comment] + 1 :]:
                     if str(c2).strip().lower() == "fr-typo-ignore-end":
-                        # collect everything between comment and c2 (inclusive of nodes between them)
-                        # use .next_siblings from comment up to c2
+                        # Mark every sibling between the start and end markers
                         node = comment.next_sibling
                         while node and node is not c2:
                             _mark_ignore(node)
                             node = node.next_sibling
                         break
             elif txt.lower() == "fr-typo-ignore":
-                # inline single ignore: next_sibling expected to be the text node or element to protect,
-                # or there could be a sibling comment </fr-typo-ignore> later.
-                # Simple heuristic: protect the next text node
+                # Single inline ignore: protect the following meaningful sibling
                 nxt = comment.next_sibling
                 while isinstance(nxt, NavigableString) and not nxt.strip():
                     nxt = nxt.next_sibling
                 if nxt is not None:
                     _mark_ignore(nxt)
 
-        # 3) Also protect elements with class/data attribute
+        # 3) Protect nodes opt-out via class or data attribute
         for el in soup.select(".fr-typo-ignore, [data-fr-typo='ignore']"):
             _mark_ignore(el)
 
-        # Allow code/span with explicit opt-out classes or attributes
+        # Preserve code/span elements with explicit opt-out hooks
         for el in soup.select(
             "code.nohighlight, code.fr-typo-ignore, code[data-fr-typo='ignore']"
         ):
@@ -196,9 +192,9 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         ):
             _mark_ignore(el)
 
-        # 4) Then, in the main iteration where you process NavigableString nodes, skip if node in nodes_to_skip
+        # 4) Skip ignored nodes during traversal
 
-        # on parcourt en profondeur
+        # Depth-first traversal
         for node in soup.descendants:
             if isinstance(node, Comment):
                 continue
@@ -421,7 +417,7 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         console.print(table)
 
     def _print_plain_summary(self):
-        # fallback texte simple si rich n'est pas disponible
+        # Plain-text fallback when rich is unavailable
         header = "Résumé des avertissements typographiques"
         print("\n" + header)
         print("-" * len(header))

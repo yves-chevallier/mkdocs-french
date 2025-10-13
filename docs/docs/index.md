@@ -141,7 +141,9 @@ Le caractère æ (a-dans-le-e) d'origine latine est plus rare, mais il est utili
 
 Le plugin remplace automatiquement certaines combinaisons de lettres par des ligatures typographiques courantes en français. Par exemple, "oe" est remplacé par "œ" dans des mots comme "coeur", "oeuvre", "boeuf", "oeil", "oeuf", "oesophage" ou "coelacanthe". Voici la liste complète des mots concernés:
 
+!!! note
 
+    Certaines polices de caractères supportent les ligatures typographiques du type "fi" ou "fl" comme dans "fils" ou "flamme". Elles sont disponibles dans le jeu de glyphes OpenType `liga` ou `dlig`. La police Noto Sans, le supporte.
 
 ## Abbréviations
 
@@ -211,7 +213,18 @@ En français on n'utilise pas le caractère `•` pour les listes à puces mais 
 - Deuxième
 - Troisième
 
+Sans mise en forme, la liste serait affichée ainsi:
+
+/// html | div[class='no-french']
+
+- Premier
+- Deuxième
+- Troisième
+
+///
+
 Cette correction est configurable et peut être désactivée :
+
 
 ```yaml
 plugins:
@@ -336,3 +349,19 @@ En dehors de ces environnements, il est possible d'ignorer des sections entière
     ```
 
     > `EVEQUE A PAQUES, etc...`{.nohighlight}, EVEQUE A PAQUES, etc...
+
+4. Pour les listes à puces, utiliser une classe CSS personnalisée pour désactiver la correction:
+
+    ```markdown
+    /// html | div[class='no-french']
+    - Premier
+    - Deuxième
+    - Troisième
+    ///
+    ```
+
+    > /// html | div[class='no-french']
+    > - Premier
+    > - Deuxième
+    > - Troisième
+    > ///

@@ -1,5 +1,5 @@
-NBSP = "\u00a0"  # espace insécable
-NNBSP = "\u202f"  # espace fine insécable
+NBSP = "\u00a0"  # non-breaking space
+NNBSP = "\u202f"  # narrow non-breaking space
 ELLIPSIS = "\u2026"
 
 SKIP_TAGS = {"code", "pre", "kbd", "samp", "var", "script", "style", "math"}
