@@ -201,6 +201,27 @@ def test_on_page_content_respects_ignore_markers(plugin_factory, page):
     assert texts[2] == f"Dernier{NBSP}: test{NNBSP}!"
 
 
+def test_on_page_content_handles_documented_spacing_cases(plugin_factory, page):
+    plugin = plugin_factory(
+        casse=Level.ignore,
+        diacritics=Level.ignore,
+        units=Level.ignore,
+    )
+    html = (
+        "<p>Tu n'as pas pris ton parapluie!. "
+        "Tu vas encore -- te faire mouiller, etc...</p>"
+    )
+
+    result = plugin.on_page_content(html, page, {}, None)
+    soup = BeautifulSoup(result, "html.parser")
+
+    expected = (
+        f"Tu n’as pas pris ton parapluie{NNBSP}! "
+        "Tu vas encore — te faire mouiller, etc."
+    )
+    assert soup.p.get_text() == expected
+
+
 def test_on_page_content_respects_ignore_classes(plugin_factory, page):
     plugin = plugin_factory(
         abbreviation=Level.ignore,
