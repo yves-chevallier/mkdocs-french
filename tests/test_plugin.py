@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 
-import pytest
 from bs4 import BeautifulSoup
 
 from mkdocs_plugin_french.constants import DEFAULT_ADMONITION_TRANSLATIONS, NBSP, NNBSP
@@ -149,9 +148,7 @@ def test_on_page_markdown_skips_when_disabled(plugin_factory, page):
     plugin = plugin_factory(admonitions=Level.ignore)
     markdown_text = "!!! warning\n    Attention\n"
 
-    assert (
-        plugin.on_page_markdown(markdown_text, page, {}, None) == markdown_text
-    )
+    assert plugin.on_page_markdown(markdown_text, page, {}, None) == markdown_text
 
 
 def test_on_page_content_applies_spacing_rule(plugin_factory, page):
@@ -233,10 +230,7 @@ def test_on_page_content_respects_ignore_classes(plugin_factory, page):
         units=Level.ignore,
         diacritics=Level.ignore,
     )
-    html = (
-        "<p>Normal: test!</p>"
-        '<p class="fr-typo-ignore">Ignorer: test!</p>'
-    )
+    html = '<p>Normal: test!</p><p class="fr-typo-ignore">Ignorer: test!</p>'
 
     result = plugin.on_page_content(html, page, {}, None)
     soup = BeautifulSoup(result, "html.parser")

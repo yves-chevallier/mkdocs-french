@@ -20,6 +20,7 @@ from .constants import (
     FOREIGN_LOCUTIONS,
 )
 from .rules import ALL_RULES, RuleDefinition
+
 try:  # rich est optionnel pour conserver la compatibilité sans dépendance installée
     from rich.console import Console
     from rich.table import Table
@@ -32,10 +33,10 @@ except ImportError:  # pragma: no cover - environnement sans rich
 log = logging.getLogger("mkdocs.plugins.fr_typo")
 
 RE_ADMONITION = re.compile(
-    r'''^(?P<indent>\s*)(?P<marker>!!!|\?\?\?\+?)\s+'''
-    r'''(?P<type>[A-Za-z0-9_-]+)'''
-    r'''(?P<options>(?:\s+(?!")[^\s]+)*)'''
-    r'''(?:\s+"(?P<title>[^"]*)")?\s*$'''
+    r"""^(?P<indent>\s*)(?P<marker>!!!|\?\?\?\+?)\s+"""
+    r"""(?P<type>[A-Za-z0-9_-]+)"""
+    r"""(?P<options>(?:\s+(?!")[^\s]+)*)"""
+    r"""(?:\s+"(?P<title>[^"]*)")?\s*$"""
 )
 
 # ---------- Config moderne par classe ----------
@@ -84,7 +85,6 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         self._site_dir: Optional[Path] = None
 
     def on_config(self, config, **kwargs):
-
         translations = DEFAULT_ADMONITION_TRANSLATIONS.copy()
         for key, value in self.config.admonition_translations.items():
             if value is not None:
@@ -99,7 +99,7 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
 
         self._site_dir = Path(config.site_dir)
         for entry in self._extra_css:
-           config["extra_css"].append("css/" + Path(entry).name)
+            config["extra_css"].append("css/" + Path(entry).name)
 
         return config
 
@@ -117,7 +117,9 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
             for _s, _e, msg, prev in rule.detector(text):
                 line_info = f"{src_path}:{cur_line}" if cur_line else src_path
                 prev_txt = f" → «{prev}»" if prev else ""
-                log.warning("[fr-typo:%s] %s: %s%s", rule.name, line_info, msg, prev_txt)
+                log.warning(
+                    "[fr-typo:%s] %s: %s%s", rule.name, line_info, msg, prev_txt
+                )
                 if self.config.summary:
                     self._collected_warnings.append(
                         {
@@ -156,16 +158,16 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         pos_map = {c: i for i, c in enumerate(comments)}
 
         # find inline and block ignores
-        for c in comments:
-            txt = str(c).strip()
+        for comment in comments:
+            txt = str(comment).strip()
             if txt.lower() == "fr-typo-ignore-start":
                 # find the matching end comment
                 # search subsequent comments for fr-typo-ignore-end
-                for c2 in comments[pos_map[c]+1:]:
+                for c2 in comments[pos_map[comment] + 1 :]:
                     if str(c2).strip().lower() == "fr-typo-ignore-end":
-                        # collect everything between c and c2 (inclusive of nodes between them)
-                        # use .next_siblings from c up to c2
-                        node = c.next_sibling
+                        # collect everything between comment and c2 (inclusive of nodes between them)
+                        # use .next_siblings from comment up to c2
+                        node = comment.next_sibling
                         while node and node is not c2:
                             _mark_ignore(node)
                             node = node.next_sibling
@@ -174,7 +176,7 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
                 # inline single ignore: next_sibling expected to be the text node or element to protect,
                 # or there could be a sibling comment </fr-typo-ignore> later.
                 # Simple heuristic: protect the next text node
-                nxt = c.next_sibling
+                nxt = comment.next_sibling
                 while isinstance(nxt, NavigableString) and not nxt.strip():
                     nxt = nxt.next_sibling
                 if nxt is not None:
@@ -185,9 +187,13 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
             _mark_ignore(el)
 
         # Allow code/span with explicit opt-out classes or attributes
-        for el in soup.select("code.nohighlight, code.fr-typo-ignore, code[data-fr-typo='ignore']"):
+        for el in soup.select(
+            "code.nohighlight, code.fr-typo-ignore, code[data-fr-typo='ignore']"
+        ):
             _mark_ignore(el)
-        for el in soup.select("span.nohighlight, span.fr-typo-ignore, span[data-fr-typo='ignore']"):
+        for el in soup.select(
+            "span.nohighlight, span.fr-typo-ignore, span[data-fr-typo='ignore']"
+        ):
             _mark_ignore(el)
 
         # 4) Then, in the main iteration where you process NavigableString nodes, skip if node in nodes_to_skip
@@ -235,7 +241,13 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
                         getattr(p, "name", None) in {"em", "i"} for p in parents_chain
                     )
                     handled_foreign, s_text = self._apply_foreign(
-                        s_text, cfg.foreign, soup, node, parent, src_path, italic_context
+                        s_text,
+                        cfg.foreign,
+                        soup,
+                        node,
+                        parent,
+                        src_path,
+                        italic_context,
                     )
                     if handled_foreign:
                         continue
@@ -276,13 +288,12 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
             marker = match.group("marker")
             options = match.group("options") or ""
             lines[idx] = (
-                f"{indent}{marker} {admonition_type}{options} \"{translation}\"{newline}"
+                f'{indent}{marker} {admonition_type}{options} "{translation}"{newline}'
             )
 
         return "".join(lines)
 
     def on_post_build(self, *, config: MkDocsConfig) -> None:
-
         site_dir = Path(config.site_dir)
         css_dir = site_dir / "css"
 
@@ -290,7 +301,6 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         for entry in self._extra_css:
             dst = css_dir / Path(entry).name
             shutil.copyfile(entry, dst)
-
 
         if self.config.summary and self._collected_warnings:
             self._print_summary()
@@ -417,7 +427,9 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         print("-" * len(header))
         for entry in self._collected_warnings:
             line = f"Ligne {entry['line']}" if entry["line"] else "Ligne —"
-            suggestion = f" | Suggestion: «{entry['preview']}»" if entry["preview"] else ""
+            suggestion = (
+                f" | Suggestion: «{entry['preview']}»" if entry["preview"] else ""
+            )
             print(
                 f"[{entry['rule']}] {entry['file']} ({line}) -> {entry['message']}{suggestion}"
             )

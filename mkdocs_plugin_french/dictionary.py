@@ -94,7 +94,9 @@ class Dictionary:
         session: Optional[requests.Session] = None,
         timeout: int = 60,
     ) -> None:
-        self.workdir = Path(workdir) if workdir else Path(tempfile.mkdtemp(prefix="morphalou_"))
+        self.workdir = (
+            Path(workdir) if workdir else Path(tempfile.mkdtemp(prefix="morphalou_"))
+        )
         self.session = session or requests.Session()
         self.timeout = timeout
         self.zip_path: Optional[Path] = None
@@ -138,7 +140,9 @@ class Dictionary:
 
         tei_candidates = [h for h in hrefs if ZIP_PATTERN.search(Path(h).name)]
         if not tei_candidates:
-            raise RuntimeError("Aucun fichier 'Morphalou*formatTEI*.zip' trouvé dans 'latest/'.")
+            raise RuntimeError(
+                "Aucun fichier 'Morphalou*formatTEI*.zip' trouvé dans 'latest/'."
+            )
 
         def score(name: str) -> tuple[int, int, str]:
             lower = name.lower()
@@ -185,7 +189,11 @@ class Dictionary:
             try:
                 for _event, elem in ET.iterparse(str(xml_path), events=("end",)):
                     tag = self._strip_ns(elem.tag)
-                    if tag in {"orth", "orthography"} and elem.text and elem.text.strip():
+                    if (
+                        tag in {"orth", "orthography"}
+                        and elem.text
+                        and elem.text.strip()
+                    ):
                         words.add(elem.text.strip())
 
                     if tag in {"form", "orthogr"}:
@@ -195,7 +203,11 @@ class Dictionary:
                                 words.add(value.strip())
                         for child in elem:
                             ctag = self._strip_ns(child.tag)
-                            if ctag in {"orth", "orthography"} and child.text and child.text.strip():
+                            if (
+                                ctag in {"orth", "orthography"}
+                                and child.text
+                                and child.text.strip()
+                            ):
                                 words.add(child.text.strip())
             except ET.ParseError:
                 continue
@@ -239,7 +251,9 @@ class Dictionary:
             return word
 
         filtered = [
-            variant for variant in accent_only if self._is_compatible_with_existing_diacritics(lower_word, variant)
+            variant
+            for variant in accent_only
+            if self._is_compatible_with_existing_diacritics(lower_word, variant)
         ]
         if len(filtered) != 1:
             return word
@@ -283,7 +297,9 @@ class Dictionary:
                 accent_ascii_present.add(base_no_diac)
                 accent_variants.setdefault(base_no_diac, set())
 
-        self._ligature_map = {key: sorted(values)[0] for key, values in ligature_candidates.items()}
+        self._ligature_map = {
+            key: sorted(values)[0] for key, values in ligature_candidates.items()
+        }
 
         accent_map: Dict[str, Tuple[str, ...]] = {}
         for base, variants in accent_variants.items():
@@ -359,14 +375,21 @@ class Dictionary:
         return suggestion_lower
 
     @staticmethod
-    def _is_compatible_with_existing_diacritics(original_lower: str, candidate_lower: str) -> bool:
+    def _is_compatible_with_existing_diacritics(
+        original_lower: str, candidate_lower: str
+    ) -> bool:
         """Filtre les candidats qui respectent les diacritiques déjà présents."""
         if len(original_lower) != len(candidate_lower):
             return False
         for orig_char, cand_char in zip(original_lower, candidate_lower):
-            if _strip_diacritics_cached(orig_char) != _strip_diacritics_cached(cand_char):
+            if _strip_diacritics_cached(orig_char) != _strip_diacritics_cached(
+                cand_char
+            ):
                 return False
-            if orig_char != _strip_diacritics_cached(orig_char) and orig_char != cand_char:
+            if (
+                orig_char != _strip_diacritics_cached(orig_char)
+                and orig_char != cand_char
+            ):
                 return False
         return True
 

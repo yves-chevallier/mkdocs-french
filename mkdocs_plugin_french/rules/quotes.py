@@ -26,4 +26,3 @@ RULE = RuleDefinition(
     detector=det_quotes,
     fixer=fix_quotes,
 )
-

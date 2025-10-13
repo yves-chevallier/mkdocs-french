@@ -8,4 +8,3 @@ def strip_accents(value: str) -> str:
     normalized = unicodedata.normalize("NFD", value)
     filtered = "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
     return unicodedata.normalize("NFC", filtered)
-

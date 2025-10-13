@@ -6,9 +6,7 @@ from .base import RuleDefinition, RuleResult, regex_finditer
 _ABBR_BAD = re.compile(r"\b(c\s*[-\.]?\s*a\s*[-\.]?\s*d)\b", re.I)
 _ABBR_PEX = re.compile(r"\b(p\s*\.?\s*ex)\b\.?", re.I)
 _ABBR_NB = re.compile(r"\b(n\s*\.?\s*b)\b\.?", re.I)
-_ETC_BAD = re.compile(
-    r"\b(?P<word>etc)(?:\s*\.(?:\s*\.)+|\s*…+)(?=\W|$)", re.I
-)
+_ETC_BAD = re.compile(r"\b(?P<word>etc)(?:\s*\.(?:\s*\.)+|\s*…+)(?=\W|$)", re.I)
 
 
 def _etc_replacement(word: str) -> str:

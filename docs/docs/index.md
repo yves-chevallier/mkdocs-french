@@ -70,7 +70,7 @@ Est corrigée en :
 
 Le plugin détecte les diacritiques manquants sur les capitales. Par exemple, `ECOLE` devient `ÉCOLE` et `CA` devient `ÇA`.
 
-La correction s'appuie sur le dictionnaire [Lexique383](http://www.lexique.org/) (téléchargé et mis en cache au premier usage) qui répertorie les formes accentuées les plus fréquentes. Activez-la ainsi :
+La correction s'appuie sur le dictionnaire [Morphalou](https://repository.ortolang.fr/api/content/morphalou) (téléchargé et mis en cache au premier usage) qui répertorie les formes accentuées les plus fréquentes. Activez-la ainsi :
 
 ```yaml
 plugins:
@@ -79,11 +79,6 @@ plugins:
 ```
 
 En mode `warn`, un message est émis sans modifier le texte d'origine. Les mots ambigus (plusieurs formes accentuées possibles) sont volontairement laissés tels quels.
-
-!!! info
-
-    Le fichier Lexique est téléchargé automatiquement et mis en cache;
-    en cas d'environnement sans accès réseau, un jeu de secours réduit est utilisé.
 
 ### Exemple
 

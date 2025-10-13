@@ -85,6 +85,7 @@ NON_PREFIXED_UNITS = {
 
 CURRENCY_UNITS = {"€", "$", "£", "¥", "CHF", "CAD", "USD"}
 
+
 def build_unit_patterns(prefixed_units: set[str]) -> Tuple[re.Pattern, List[str]]:
     units: set[str] = set()
     units.update(prefixed_units)

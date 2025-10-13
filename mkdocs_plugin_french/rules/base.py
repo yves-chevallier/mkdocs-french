@@ -29,4 +29,3 @@ def regex_finditer(
         preview = replacement_preview(match) if replacement_preview else None
         out.append((match.start(), match.end(), make_msg(match), preview))
     return out
-

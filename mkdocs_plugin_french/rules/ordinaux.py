@@ -81,7 +81,9 @@ GENERAL_SUFFIX_MAP = {
 
 def _normalize_suffix(number: str, suffix: str) -> Optional[str]:
     normalized = suffix.lower()
-    for original, replacement in sorted(REPLACEMENTS.items(), key=lambda item: -len(item[0])):
+    for original, replacement in sorted(
+        REPLACEMENTS.items(), key=lambda item: -len(item[0])
+    ):
         normalized = normalized.replace(original, replacement)
 
     if number == "1":
