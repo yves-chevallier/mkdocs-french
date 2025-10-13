@@ -21,3 +21,12 @@ DEFAULT_ADMONITION_TRANSLATIONS = {
     "cite": "Citation",
     "exercise": "Exercice",
 }
+
+FOREIGN_LOCUTIONS = [
+    "a capella",
+    "de facto",
+    "honoris causa",
+    "ipso facto",
+    "manu militari",
+    "sine die",
+]

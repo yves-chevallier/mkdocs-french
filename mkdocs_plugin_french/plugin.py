@@ -13,7 +13,12 @@ from mkdocs.config import config_options as c
 from mkdocs.config.base import Config
 from mkdocs.config.defaults import MkDocsConfig
 from mkdocs.plugins import BasePlugin
-from .constants import SKIP_TAGS, SKIP_PARENTS, DEFAULT_ADMONITION_TRANSLATIONS
+from .constants import (
+    SKIP_TAGS,
+    SKIP_PARENTS,
+    DEFAULT_ADMONITION_TRANSLATIONS,
+    FOREIGN_LOCUTIONS,
+)
 from .rules import ALL_RULES, RuleDefinition
 try:  # rich est optionnel pour conserver la compatibilité sans dépendance installée
     from rich.console import Console
@@ -52,6 +57,7 @@ class FrenchPluginConfig(Config):
     quotes = c.Choice((Level.ignore, Level.warn, Level.fix), default=Level.fix)
     units = c.Choice((Level.ignore, Level.warn, Level.fix), default=Level.fix)
     diacritics = c.Choice((Level.ignore, Level.warn, Level.fix), default=Level.warn)
+    foreign = c.Choice((Level.ignore, Level.warn, Level.fix), default=Level.fix)
 
     # options diverses
     justify = c.Type(bool, default=True)  # injecte CSS pour texte justifié et césures
@@ -219,6 +225,22 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
                     level = getattr(cfg, rule.config_attr)
                     s = self._apply_rule(rule, level, s, src_path, None)
 
+                handled_foreign = False
+                if cfg.foreign != Level.ignore and parent:
+                    s_text = s if s != node else str(node)
+                    parents_chain = [parent]
+                    if hasattr(parent, "parents"):
+                        parents_chain.extend(parent.parents)
+                    italic_context = any(
+                        getattr(p, "name", None) in {"em", "i"} for p in parents_chain
+                    )
+                    handled_foreign, s_text = self._apply_foreign(
+                        s_text, cfg.foreign, soup, node, parent, src_path, italic_context
+                    )
+                    if handled_foreign:
+                        continue
+                    s = s_text
+
                 if s != node:
                     node.replace_with(NavigableString(s))
 
@@ -273,6 +295,84 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         if self.config.summary and self._collected_warnings:
             self._print_summary()
 
+    def _apply_foreign(
+        self,
+        text: str,
+        level: Level,
+        soup: BeautifulSoup,
+        node: NavigableString,
+        parent,
+        src_path: str,
+        italic_context: bool,
+    ) -> tuple[bool, str]:
+        if not FOREIGN_LOCUTIONS:
+            return False, text
+
+        pattern = getattr(self, "_foreign_pattern", None)
+        if pattern is None:
+            escaped = "|".join(re.escape(loc) for loc in FOREIGN_LOCUTIONS)
+            self._foreign_pattern = re.compile(
+                rf"(?<![\w-])({escaped})(?![\w-])", re.IGNORECASE
+            )
+            pattern = self._foreign_pattern
+
+        matches = list(pattern.finditer(text))
+        if not matches:
+            return False, text
+
+        if level == Level.warn:
+            for match in matches:
+                self._log_foreign_warning(match.group(1), src_path)
+            return False, text
+
+        # Level.fix
+        new_nodes: List = []
+        last_idx = 0
+        for match in matches:
+            start, end = match.span()
+            if start < last_idx:
+                continue
+            before = text[last_idx:start]
+            if before:
+                new_nodes.append(NavigableString(before))
+            if italic_context:
+                normal_span = soup.new_tag("span")
+                normal_span.attrs["style"] = "font-style: normal;"
+                normal_span.string = match.group(1)
+                new_nodes.append(normal_span)
+            else:
+                em_tag = soup.new_tag("em")
+                em_tag.string = match.group(1)
+                new_nodes.append(em_tag)
+            last_idx = end
+        tail = text[last_idx:]
+        if tail:
+            new_nodes.append(NavigableString(tail))
+
+        if not new_nodes:
+            return False, text
+
+        first = new_nodes[0]
+        node.replace_with(first)
+        current = first
+        for new_child in new_nodes[1:]:
+            current.insert_after(new_child)
+            current = new_child
+        return True, text
+
+    def _log_foreign_warning(self, phrase: str, src_path: str) -> None:
+        message = f"Locution étrangère non italique : «{phrase}»"
+        log.warning("[fr-typo:foreign] %s: %s", src_path, message)
+        if self.config.summary:
+            self._collected_warnings.append(
+                {
+                    "rule": "foreign",
+                    "file": src_path,
+                    "line": None,
+                    "message": message,
+                    "preview": phrase,
+                }
+            )
 
     def _print_summary(self):
         if Table is None or Console is None or box is None:

@@ -6,12 +6,12 @@ from mkdocs_plugin_french.rules import diacritics
 
 
 class DummyDictionary:
-    def accentize(self, word: str) -> str | None:
+    def accentize(self, word: str) -> str:
         mapping = {
             "ECOLE": "ÉCOLE",
             "Ecole": "École",
         }
-        return mapping.get(word)
+        return mapping.get(word, word)
 
 
 def test_diacritics_fix_only_uppercase(monkeypatch):

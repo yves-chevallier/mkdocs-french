@@ -1,51 +1,45 @@
 from __future__ import annotations
 
 import re
-from .base import RuleDefinition, RuleResult, regex_finditer
+from .base import RuleDefinition, RuleResult
+from ..dictionary import dictionary
 
-LIG_DICT = {
-    "coeur": "cœur",
-    "soeur": "sœur",
-    "boeuf": "bœuf",
-    "coelacanthe": "cœlacanthe",
-    "noeud": "nœud",
-    "oeil": "œil",
-    "oeuf": "œuf",
-    "oeuvre": "œuvre",
-    "oeuvrer": "œuvrer",
-    "oedeme": "œdème",
-    "oesophage": "œsophage",
-    "oestrogène": "œstrogène",
-    "oecuménique": "œcuménique",
-    "oeillet": "œillet",
-    "foetus": "fœtus",
-    "oedipe": "œdipe",
-    "caecum": "cæcum",
-    "tænia": "tænia",
-    "vitae": "vitæ",
-    "ex aequo": "ex æquo",
-    "cænotype": "cænotype",
-    "voeu": "vœu",
-}
+WORD_PATTERN = re.compile(r"\b[^\W\d_]+\b", re.UNICODE)
+
+
+def _needs_ligature(word: str) -> bool:
+    lowered = word.lower()
+    return "oe" in lowered or "ae" in lowered
 
 
 def det_ligatures(text: str) -> list[RuleResult]:
     results: list[RuleResult] = []
-    for plain, lig in LIG_DICT.items():
-        pattern = re.compile(rf"\b{plain}\b", re.I)
-        results += regex_finditer(
-            text,
-            pattern,
-            lambda m, l=lig: f"Ligature : «{m.group(0)}» → «{l}»",
-            lambda m, l=lig: l,
+    for match in WORD_PATTERN.finditer(text):
+        word = match.group(0)
+        if not _needs_ligature(word):
+            continue
+        ligatured = dictionary.ligaturize(word)
+        if ligatured == word:
+            continue
+        results.append(
+            (
+                match.start(),
+                match.end(),
+                f"Ligature : «{word}» → «{ligatured}»",
+                ligatured,
+            )
         )
     return results
 
 
 def fix_ligatures(text: str) -> str:
-    for plain, lig in LIG_DICT.items():
-        text = re.sub(rf"\b{plain}\b", lig, text, flags=re.I)
-    return text
+    def repl(match: re.Match) -> str:
+        word = match.group(0)
+        if not _needs_ligature(word):
+            return word
+        return dictionary.ligaturize(word)
+
+    return WORD_PATTERN.sub(repl, text)
 
 
 RULE = RuleDefinition(
@@ -54,4 +48,3 @@ RULE = RuleDefinition(
     detector=det_ligatures,
     fixer=fix_ligatures,
 )
-

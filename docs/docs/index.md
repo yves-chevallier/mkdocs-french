@@ -105,6 +105,7 @@ On note la limite de l'algorithme par l'absence de correction pour "délégué z
 
 Certaines locutions étrangères comme les suivantes doivent -- en français -- être mises en italique:
 
+
 - a capella,
 - de facto,
 - honoris causa,
@@ -127,55 +128,25 @@ plugins:
 Prenons l'exemple de la phrase suivante:
 
 ```md
-Le chanteur a capella a été diplômé honoris causa par l'université.
+Le chanteur a capella a été diplômé honoris causa par
+l'université, il a dit: *Avec cette distinction, je serai de facto plus riche*.
 ```
 
 Est corrigée en:
 
-> Le chanteur a capella a été diplômé honoris causa par l'université.
+> Le chanteur a capella a été diplômé honoris causa par
+> l'université, il a dit:
+> *Avec cette distinction, je serai de facto plus riche*.
 
 ## Ligatures
 
+Selon l'académie française, le caractère œ (e-dans-l'o) est une lettre à part entière qui est nécessaire pour l'orthographe correcte de certains mots en français comme coeur, soeur, oeil ou manoeuvre. En revanche, il n'est pas utilisé pour poele ou moelleux.
+
+Le caractère æ (a-dans-le-e) d'origine latine est plus rare, mais il est utilisé dans certains mots comme caecum, ex aequo ou vitae.
+
 Le plugin remplace automatiquement certaines combinaisons de lettres par des ligatures typographiques courantes en français. Par exemple, "oe" est remplacé par "œ" dans des mots comme "coeur", "oeuvre", "boeuf", "oeil", "oeuf", "oesophage" ou "coelacanthe". Voici la liste complète des mots concernés:
 
-/// html | div[style='float: left; width: 50%; text-align: center;']
 
-
-| Mot                                                    | Correction |
-| ------------------------------------------------------ | ---------- |
-| <!--fr-typo-ignore-->boeuf<!--/fr-typo-ignore-->       | bœuf       |
-| <!--fr-typo-ignore-->caecum<!--/fr-typo-ignore-->      | cæcum      |
-| <!--fr-typo-ignore-->cænotype<!--/fr-typo-ignore-->    | cænotype   |
-| <!--fr-typo-ignore-->coelacanthe<!--/fr-typo-ignore--> | cœlacanthe |
-| <!--fr-typo-ignore-->coeur<!--/fr-typo-ignore-->       | cœur       |
-| <!--fr-typo-ignore-->ex aequo<!--/fr-typo-ignore-->    | ex æquo    |
-| <!--fr-typo-ignore-->foetus<!--/fr-typo-ignore-->      | fœtus      |
-| <!--fr-typo-ignore-->noeud<!--/fr-typo-ignore-->       | nœud       |
-| <!--fr-typo-ignore-->oe<!--/fr-typo-ignore-->          | œ          |
-| <!--fr-typo-ignore-->oecuménique<!--/fr-typo-ignore--> | œcuménique |
-| <!--fr-typo-ignore-->oedeme<!--/fr-typo-ignore-->      | œdème      |
-
-
-///
-
-/// html | div[style='float: right;width: 50%; text-align: center;']
-| Mot                                                   | Correction |
-| ----------------------------------------------------- | ---------- |
-| <!--fr-typo-ignore-->oedipe<!--/fr-typo-ignore-->     | œdipe      |
-| <!--fr-typo-ignore-->oeil<!--/fr-typo-ignore-->       | œil        |
-| <!--fr-typo-ignore-->oeillet<!--/fr-typo-ignore-->    | œillet     |
-| <!--fr-typo-ignore-->oesophage<!--/fr-typo-ignore-->  | œsophage   |
-| <!--fr-typo-ignore-->oestrogène<!--/fr-typo-ignore--> | œstrogène  |
-| <!--fr-typo-ignore-->oeuf<!--/fr-typo-ignore-->       | œuf        |
-| <!--fr-typo-ignore-->oeuvre<!--/fr-typo-ignore-->     | œuvre      |
-| <!--fr-typo-ignore-->oeuvrer<!--/fr-typo-ignore-->    | œuvrer     |
-| <!--fr-typo-ignore-->soeur<!--/fr-typo-ignore-->      | sœur       |
-| <!--fr-typo-ignore-->vitae<!--/fr-typo-ignore-->      | vitæ       |
-| <!--fr-typo-ignore-->voeu<!--/fr-typo-ignore-->       | vœu        |
-///
-
-/// html | div[style='clear: both;']
-///
 
 ## Abbréviations
 
@@ -304,9 +275,42 @@ plugins:
         pied-piper: "Joueur de flûte" # Pour les admonitions personnalisées
 ```
 
-!!! pied-piper
+/// html | div[style='display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-evenly;']
 
-    Cause toujours tu m'intéresses !
+!!! info inline
+
+    Information
+
+!!! warning inline
+
+    Avertissement
+
+!!! danger inline
+
+    Danger
+
+!!! example inline
+
+    Exemple
+
+!!! note inline
+
+    Note
+
+!!! tip inline
+
+    Astuce
+
+!!! bug inline
+
+    Bug
+
+!!! pied-piper inline
+
+    Admonition personnalisée
+
+///
+
 
 ## Désactiver les corrections
 
@@ -317,19 +321,23 @@ En dehors de ces environnements, il est possible d'ignorer des sections entière
 1. Utiliser les balises HTML de commentaire `<!--fr-typo-ignore-->`:
 
     ```markdown
-    En français, on n'écrit pas
-    "<!--fr-typo-ignore-->LE CONGRES<!--/fr-typo-ignore-->" mais
-    "LE CONGRÈS" si c'est un salon ou "LE CONGRES" si c'est un poisson.
+    <!--fr-typo-ignore-->EVEQUE A PAQUES, etc...<!--/fr-typo-ignore-->
     ```
+
+    > <!--fr-typo-ignore-->EVEQUE A PAQUES, etc...<!--/fr-typo-ignore-->
 
 2. Utiliser une entrée HTML `<span> ... </span>` pour ignorer une partie d'une ligne :
 
     ```markdown
-    Écrire <span>2ème</span> est incorrect en français, on écrit 2^e^.
+    <span>EVEQUE A PAQUES, etc...</span>
     ```
+
+    > <span>EVEQUE A PAQUES, etc...</span>
 
 3. Utiliser l'extension `pymdownx.inlinehilite` et utiliser la syntaxe *nohighlight*:
 
     ```markdown
-    Cette section `n'est pas corrigée`{.nohighlight}.
+    `EVEQUE A PAQUES, etc...`{.nohighlight}, EVEQUE A PAQUES, etc...
     ```
+
+    > `EVEQUE A PAQUES, etc...`{.nohighlight}, EVEQUE A PAQUES, etc...

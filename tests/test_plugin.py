@@ -246,6 +246,42 @@ def test_on_page_content_respects_ignore_classes(plugin_factory, page):
     assert texts[1] == "Ignorer: test!"
 
 
+def test_on_page_content_applies_foreign_italicization(plugin_factory, page):
+    plugin = plugin_factory()
+    html = "<p>Le chanteur a capella a été diplômé honoris causa par l'université.</p>"
+
+    result = plugin.on_page_content(html, page, {}, None)
+    soup = BeautifulSoup(result, "html.parser")
+
+    italics = [em.get_text() for em in soup.find_all("em")]
+    assert "a capella" in italics
+    assert "honoris causa" in italics
+
+
+def test_on_page_content_applies_foreign_in_italic_context(plugin_factory, page):
+    plugin = plugin_factory()
+    html = "<p><em>Avec cette distinction, je serai de facto plus riche.</em></p>"
+
+    result = plugin.on_page_content(html, page, {}, None)
+    soup = BeautifulSoup(result, "html.parser")
+
+    em = soup.find("em")
+    span = em.find("span")
+    assert span is not None
+    assert span.get_text() == "de facto"
+    assert span.get("style") == "font-style: normal;"
+
+
+def test_on_page_content_foreign_warns_without_fix(plugin_factory, page, caplog):
+    plugin = plugin_factory(foreign=Level.warn)
+    html = "<p>Il a agi de facto.</p>"
+
+    with caplog.at_level(logging.WARNING, logger="mkdocs.plugins.fr_typo"):
+        plugin.on_page_content(html, page, {}, None)
+
+    assert "Locution étrangère non italique : «de facto»" in caplog.text
+
+
 def test_on_page_content_keeps_sentence_start_capital(plugin_factory, page):
     plugin = plugin_factory(
         abbreviation=Level.ignore,

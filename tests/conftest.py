@@ -75,6 +75,7 @@ def make_plugin_config(**overrides):
         "quotes": Level.fix,
         "units": Level.fix,
         "diacritics": Level.warn,
+        "foreign": Level.fix,
         "enable_css_bullets": False,  # disabled by default in tests
         "css_scope_selector": "body",
         "admonitions": Level.fix,
