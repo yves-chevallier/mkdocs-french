@@ -33,14 +33,14 @@ Le tiret cadratin `—` U+2014 est utilisé pour les incises et dialogues. Il n'
 
 Certaines contractions avec la virgule ou le point sont également corrigées :
 
-| Incorrect | Correct | Description               |
-| --------- | ------- | --- |
+| Incorrect | Correct | Description                                                         |
+| --------- | ------- | ------------------------------------------------------------------- |
 | ?.        | ?       | Suppression de la ponctuation finale après un point d'interrogation |
-| !.        | !       | Suppression de la ponctuation finale après un point d'exclamation |
-| etc..     | etc.    | Suppression de la ponctuation finale après "etc." |
-| etc...    | etc.    | Suppression de la redondance des points de suspension |
-| etc....   | etc.    | Suppression de la ponctuation finale après "etc." |
-| m, ...    | m...    | Suppression de la virgule avant "..." |
+| !.        | !       | Suppression de la ponctuation finale après un point d'exclamation   |
+| etc..     | etc.    | Suppression de la ponctuation finale après "etc."                   |
+| etc...    | etc.    | Suppression de la redondance des points de suspension               |
+| etc....   | etc.    | Suppression de la ponctuation finale après "etc."                   |
+| m, ...    | m...    | Suppression de la virgule avant "..."                               |
 
 La configuration dans `mkdocs.yml` s'effectue ainsi:
 
@@ -135,15 +135,32 @@ Est corrigée en:
 
 ## Ligatures
 
+### Ligatures orthographiques
+
 Selon l'académie française, le caractère œ (e-dans-l'o) est une lettre à part entière qui est nécessaire pour l'orthographe correcte de certains mots en français comme coeur, soeur, oeil ou manoeuvre. En revanche, il n'est pas utilisé pour poele ou moelleux.
 
 Le caractère æ (a-dans-le-e) d'origine latine est plus rare, mais il est utilisé dans certains mots comme caecum, ex aequo ou vitae.
 
 Le plugin remplace automatiquement certaines combinaisons de lettres par des ligatures typographiques courantes en français. Par exemple, "oe" est remplacé par "œ" dans des mots comme "coeur", "oeuvre", "boeuf", "oeil", "oeuf", "oesophage" ou "coelacanthe". Voici la liste complète des mots concernés:
 
-!!! note
+### Ligatures typographiques
 
-    Certaines polices de caractères supportent les ligatures typographiques du type "fi" ou "fl" comme dans "fils" ou "flamme". Elles sont disponibles dans le jeu de glyphes OpenType `liga` ou `dlig`. La police Noto Sans, le supporte.
+Certaines polices de caractères supportent les ligatures typographiques latines dites "discretionary" (facultatives). Elles sont disponibles dans le jeu de glyphes OpenType `liga` ou `dlig`. La police Noto Sans, le supporte.
+
+| Ligature | Mot exemple    | Mot exemple     | Unicode |
+| -------- | -------------- | --------------- | ------- |
+| ﬀ        | aﬀaire         | affaire         | U+FB00  |
+| ﬁ        | ﬁls            | fils            | U+FB01  |
+| ﬂ        | ﬂamme          | flamme          | U+FB02  |
+| ﬃ        | aﬃliation      | affiliation     | U+FB03  |
+| ﬄ        | aﬄiction       | affliction      | U+FB04  |
+
+### Ligatures historiques
+
+| Ligature | Mot exemple    | Mot exemple     | Unicode |
+| -------- | -------------- | --------------- | ------- |
+| ﬅ        | raﬅing         | rafting         | U+FB05  |
+| ﬆ        | conﬆitutionnel | constitutionnel | U+FB06  |
 
 ## Abbréviations
 
