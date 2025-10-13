@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import argparse
 import gzip
 import json
 import sys

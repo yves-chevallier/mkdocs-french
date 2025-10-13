@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-from mkdocs_plugin_french.rules import diacritics
+from mkdocs_french.rules import diacritics
 
 
 class DummyDictionary:
@@ -14,7 +14,7 @@ class DummyDictionary:
 
 
 def test_diacritics_fix_only_uppercase(monkeypatch):
-    monkeypatch.setattr(diacritics, "dictionary", DummyDictionary())
+    monkeypatch.setattr(diacritics, "get_dictionary", lambda: DummyDictionary())
     text = "ECOLE Ecole"
 
     fixed = diacritics.fix_diacritics(text)
@@ -22,7 +22,7 @@ def test_diacritics_fix_only_uppercase(monkeypatch):
 
 
 def test_diacritics_detector_skips_capitalized(monkeypatch):
-    monkeypatch.setattr(diacritics, "dictionary", DummyDictionary())
+    monkeypatch.setattr(diacritics, "get_dictionary", lambda: DummyDictionary())
     text = "ECOLE Ecole"
 
     results = diacritics.det_diacritics(text)

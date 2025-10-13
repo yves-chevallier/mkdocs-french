@@ -118,3 +118,4 @@ dmypy.json
 
 site/
 links.yml
+mkdocs_french/artifacts/morphalou_data.json.gz

@@ -2,10 +2,15 @@ from __future__ import annotations
 
 import sys
 import types
+from pathlib import Path
 from types import SimpleNamespace
 
 import markdown
 import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 # ---------------------------------------------------------------------------
 # Provide minimal mkdocs stubs so the plugin can be imported without mkdocs
@@ -60,8 +65,8 @@ except ImportError:  # pragma: no cover - exercised when mkdocs missing
     sys.modules["mkdocs.config.base"] = config_base_module
     sys.modules["mkdocs.plugins"] = plugins_module
 
-from mkdocs_plugin_french.constants import DEFAULT_ADMONITION_TRANSLATIONS
-from mkdocs_plugin_french.plugin import FrenchPlugin, Level
+from mkdocs_french.constants import DEFAULT_ADMONITION_TRANSLATIONS
+from mkdocs_french.plugin import FrenchPlugin, Level
 
 
 def make_plugin_config(**overrides):
@@ -76,6 +81,7 @@ def make_plugin_config(**overrides):
         "units": Level.fix,
         "diacritics": Level.warn,
         "foreign": Level.fix,
+        "justify": False,
         "enable_css_bullets": False,  # disabled by default in tests
         "css_scope_selector": "body",
         "admonitions": Level.fix,
@@ -93,7 +99,6 @@ def plugin_factory():
         plugin = FrenchPlugin()
         plugin.config = make_plugin_config(**config_overrides)
         plugin._collected_warnings = []
-        plugin._temp_css_created = set()
         plugin._admonition_translations = DEFAULT_ADMONITION_TRANSLATIONS.copy()
         return plugin
 

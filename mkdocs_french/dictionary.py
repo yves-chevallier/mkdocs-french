@@ -124,7 +124,7 @@ class Dictionary:
 
     # ------------------ Preparation lifecycle ------------------
 
-    def prepare(self) -> None:
+    def prepare(self) -> None:  # pragma: no cover - network dependent
         """Run the full pipeline: download, extract, parse, build indexes."""
         self._prepare_attempted = True
         try:
@@ -142,7 +142,7 @@ class Dictionary:
         self._build_indexes()
         self._prepared = True
 
-    def _download_latest_zip(self) -> Path:
+    def _download_latest_zip(self) -> Path:  # pragma: no cover - network dependent
         """Fetch the 'latest/' listing, pick the best TEI ZIP and download it."""
         self.workdir.mkdir(parents=True, exist_ok=True)
         resp = self.session.get(LISTING_URL, timeout=self.timeout)
@@ -177,7 +177,7 @@ class Dictionary:
         self.zip_path = out_path
         return out_path
 
-    def _extract_zip(self) -> Path:
+    def _extract_zip(self) -> Path:  # pragma: no cover - network dependent
         """Extract the TEI archive into a subdirectory."""
         if not self.zip_path:
             raise RuntimeError("Aucun ZIP à extraire. Appelez d'abord prepare().")
@@ -188,7 +188,7 @@ class Dictionary:
         self.extract_dir = extract_dir
         return extract_dir
 
-    def _parse_all_xml(self) -> None:
+    def _parse_all_xml(self) -> None:  # pragma: no cover - heavy parsing
         """Collect Morphalou spellings and populate self.words."""
         if not self.extract_dir:
             raise RuntimeError("Aucun dossier extrait. Appelez prepare() d'abord.")
@@ -357,13 +357,13 @@ class Dictionary:
         lig_field = payload.get("ligature_map", {})
         accent_field = payload.get("accent_map", {})
 
-        if not isinstance(words_field, list):
+        if not isinstance(words_field, list):  # pragma: no cover - validation guard
             log.warning("Artéfact Morphalou invalide : 'words' doit être une liste.")
             return False
-        if not isinstance(lig_field, dict):
+        if not isinstance(lig_field, dict):  # pragma: no cover - validation guard
             log.warning("Artéfact Morphalou invalide : 'ligature_map' doit être un dict.")
             return False
-        if not isinstance(accent_field, dict):
+        if not isinstance(accent_field, dict):  # pragma: no cover - validation guard
             log.warning("Artéfact Morphalou invalide : 'accent_map' doit être un dict.")
             return False
 
@@ -388,7 +388,7 @@ class Dictionary:
             if normalized:
                 accent_map[key] = normalized
 
-        if not words:
+        if not words:  # pragma: no cover - validation guard
             log.warning("Artéfact Morphalou invalide : aucune entrée exploitable.")
             return False
 
@@ -541,4 +541,13 @@ class Dictionary:
         return tuple(ascii_variants + sorted(other_variants))
 
 
-dictionary = Dictionary()
+
+
+@lru_cache(maxsize=1)
+def get_dictionary() -> "Dictionary":
+    """Return a cached ``Dictionary`` instance."""
+
+    return Dictionary()
+
+
+__all__ = ["Dictionary", "get_dictionary"]

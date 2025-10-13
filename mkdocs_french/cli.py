@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Iterable
 
-from mkdocs_plugin_french.artifacts.build import build_morphalou_artifact
+from .artifacts.build import build_morphalou_artifact
 
 
 def main(argv: Iterable[str] | None = None) -> int:
@@ -34,7 +34,7 @@ def _configure_build_parser(subparsers: argparse._SubParsersAction[argparse.Argu
     build_parser.add_argument(
         "--output",
         type=Path,
-        help="Destination path (defaults to mkdocs_plugin_french/artifacts).",
+        help="Destination path (defaults to mkdocs_french/artifacts).",
     )
     build_parser.add_argument(
         "--force",

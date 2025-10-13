@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from mkdocs_plugin_french.rules import casse
+from mkdocs_french.rules import casse
 
 
 def test_det_casse_skips_sentence_start():

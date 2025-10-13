@@ -1,4 +1,4 @@
-from mkdocs_plugin_french.rules.abbreviation import det_abbreviation, fix_abbreviation
+from mkdocs_french.rules.abbreviation import det_abbreviation, fix_abbreviation
 
 
 def test_fix_abbreviation_normalizes_etc_variants():

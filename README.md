@@ -46,8 +46,9 @@ pip install mkdocs-french
 ## Données Morphalou pré-générées
 
 Le plugin ne télécharge plus Morphalou à chaque exécution.
-Il charge un artéfact compressé localisé dans `mkdocs_plugin_french/artifacts/morphalou_data.json.gz`.
-Vous pouvez versionner ce fichier pour éviter tout accès réseau pendant la génération du site.
+Il charge un artéfact compressé localisé dans `mkdocs_french/artifacts/morphalou_data.json.gz`.
+L’archive est générée pendant le processus de packaging et livrée dans les wheels publiées.
+Si vous utilisez le dépôt source, générez l’artéfact avant d’exécuter MkDocs.
 
 ### Générer les artéfacts
 
@@ -58,4 +59,24 @@ poetry run python -m mkdocs_french build
 ```
 
 L’option `--force` permet d’écraser un artéfact existant, et `--output` accepte un chemin personnalisé.
-Dans un pipeline CI, vous pouvez exécuter la commande avant de lancer MkDocs ; elle ne recrée pas le fichier si celui-ci est déjà présent.
+Dans un pipeline CI, exécutez la commande avant MkDocs ; elle ne recrée pas le fichier si celui-ci est déjà présent.
+
+## Comportement de configuration du plugin
+
+Le hook `on_config` du plugin peut recevoir soit un dictionnaire Python brut,
+soit l'objet `MkDocsConfig` fourni par MkDocs. Cette distinction est
+particulièrement visible dans la suite de tests, qui instancie parfois le
+plugin avec une configuration minimale basée sur un dict.
+
+Pour assurer la compatibilité avec ces deux scénarios, le plugin détecte le
+type de `config` avant de lire `site_dir` et de mettre à jour la liste
+`extra_css`. Un accès via `config.setdefault` ne fonctionne que pour un dict,
+alors que `MkDocsConfig` expose `site_dir` comme attribut mais ne propose pas de
+méthode `setdefault`. Sans cette précaution, l'appel échouerait côté tests et le
+plugin ne pourrait pas s'exécuter correctement dans un environnement MkDocs
+réel.
+
+La logique actuelle garantit en plus qu'une feuille de style ajoutée par le
+plugin n'est insérée qu'une seule fois dans `extra_css`, même si la commande de
+build est relancée dans le même processus. On évite ainsi la duplication de
+chemins dans la configuration finale.

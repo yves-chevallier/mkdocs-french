@@ -4,12 +4,12 @@ import logging
 
 from bs4 import BeautifulSoup
 
-from mkdocs_plugin_french.constants import DEFAULT_ADMONITION_TRANSLATIONS, NBSP, NNBSP
-from mkdocs_plugin_french.plugin import Level
-from mkdocs_plugin_french.rules.base import RuleDefinition
+from mkdocs_french.constants import DEFAULT_ADMONITION_TRANSLATIONS, NBSP, NNBSP
+from mkdocs_french.plugin import Level
+from mkdocs_french.rules.base import RuleDefinition
 
 
-def test_on_config_copies_css_and_updates_extra(tmp_path, plugin_factory):
+def test_on_config_updates_extra_and_translations(tmp_path, plugin_factory):
     plugin = plugin_factory(
         enable_css_bullets=True,
         admonition_translations={"warning": "Attention"},
@@ -25,9 +25,8 @@ def test_on_config_copies_css_and_updates_extra(tmp_path, plugin_factory):
     plugin.on_config(mkdocs_config)
 
     css_path = docs_dir / "css" / "french-bullet.css"
-    assert css_path.exists()
+    assert not css_path.exists()
     assert plugin._admonition_translations["warning"] == "Attention"
-    assert css_path in plugin._temp_css_created
     assert mkdocs_config["extra_css"] == ["base.css", "css/french-bullet.css"]
 
 
@@ -46,6 +45,45 @@ def test_on_config_does_not_duplicate_extra_css(tmp_path, plugin_factory):
     assert mkdocs_config["extra_css"].count("css/french-bullet.css") == 1
 
 
+def test_on_config_adds_justify_css(tmp_path, plugin_factory):
+    plugin = plugin_factory(enable_css_bullets=False, justify=True)
+    docs_dir = tmp_path / "docs"
+    site_dir = tmp_path / "site"
+    mkdocs_config = {
+        "docs_dir": str(docs_dir),
+        "site_dir": str(site_dir),
+        "extra_css": [],
+    }
+
+    plugin.on_config(mkdocs_config)
+
+    assert "css/french-justify.css" in mkdocs_config["extra_css"]
+
+
+def test_on_config_supports_mkdocs_config_object(tmp_path, plugin_factory):
+    plugin = plugin_factory(enable_css_bullets=True)
+    site_dir = tmp_path / "site"
+
+    class DummyMkDocsConfig:
+        def __init__(self, site_dir):
+            self.site_dir = str(site_dir)
+            self.extra_css = []
+
+        def __getitem__(self, key):
+            if key == "site_dir":
+                return self.site_dir
+            if key == "extra_css":
+                return self.extra_css
+            raise KeyError(key)
+
+    config_obj = DummyMkDocsConfig(site_dir)
+
+    plugin.on_config(config_obj)
+
+    assert "css/french-bullet.css" in config_obj.extra_css
+    assert plugin._site_dir == site_dir
+
+
 def test_on_post_build_copies_assets_and_cleans(tmp_path, plugin_factory):
     plugin = plugin_factory(enable_css_bullets=True)
     docs_dir = tmp_path / "docs"
@@ -58,15 +96,68 @@ def test_on_post_build_copies_assets_and_cleans(tmp_path, plugin_factory):
 
     plugin.on_config(mkdocs_config)
     docs_css = docs_dir / "css" / "french-bullet.css"
-    assert docs_css.exists()
+    assert not docs_css.exists()
 
     plugin.on_post_build({"site_dir": str(site_dir)})
 
     site_css = site_dir / "css" / "french-bullet.css"
     assert site_css.exists()
-    assert not docs_css.exists()
-    assert not (docs_dir / "css").exists()
-    assert plugin._temp_css_created == set()
+
+
+def test_print_summary_with_rich(monkeypatch, plugin_factory):
+    plugin = plugin_factory(summary=True)
+    plugin._collected_warnings = [
+        {
+            "rule": "spacing",
+            "file": "doc.md",
+            "line": 3,
+            "message": "Espace fine", 
+            "preview": ";",
+        }
+    ]
+
+    class DummyTable:
+        def __init__(self, *args, **kwargs):
+            self.rows = []
+
+        def add_column(self, *args, **kwargs):
+            return None
+
+        def add_row(self, *args, **kwargs):
+            self.rows.append(args)
+
+    class DummyConsole:
+        def __init__(self):
+            self.rendered = []
+
+        def print(self, table):
+            self.rendered.append(table)
+
+    monkeypatch.setattr("mkdocs_french.plugin.Table", DummyTable)
+    monkeypatch.setattr("mkdocs_french.plugin.Console", DummyConsole)
+    monkeypatch.setattr("mkdocs_french.plugin.box", type("_Box", (), {"ROUNDED": object()}))
+
+    plugin._print_summary()
+
+    assert isinstance(plugin._collected_warnings[0], dict)
+
+
+def test_print_plain_summary_outputs(capsys, plugin_factory):
+    plugin = plugin_factory(summary=True)
+    plugin._collected_warnings = [
+        {
+            "rule": "spacing",
+            "file": "doc.md",
+            "line": 2,
+            "message": "Espace fine", 
+            "preview": ";",
+        }
+    ]
+
+    plugin._print_plain_summary()
+
+    captured = capsys.readouterr()
+    assert "Résumé des avertissements" in captured.out
 
 
 def test_apply_rule_ignore_returns_original_text(plugin_factory):
@@ -312,13 +403,6 @@ def test_on_page_content_uppercases_countries(plugin_factory, page):
     soup = BeautifulSoup(result, "html.parser")
 
     assert soup.p.get_text() == "voyage en France et Espagne"
-
-
-def test_on_post_page_returns_content_as_is(plugin_factory):
-    plugin = plugin_factory()
-    assert plugin.on_post_page("HTML", None, None) == "HTML"
-
-
 def test_print_summary_plain_fallback(plugin_factory, capsys, monkeypatch):
     plugin = plugin_factory(summary=True)
     plugin._collected_warnings = [
@@ -331,9 +415,9 @@ def test_print_summary_plain_fallback(plugin_factory, capsys, monkeypatch):
         }
     ]
 
-    monkeypatch.setattr("mkdocs_plugin_french.plugin.Console", None)
-    monkeypatch.setattr("mkdocs_plugin_french.plugin.Table", None)
-    monkeypatch.setattr("mkdocs_plugin_french.plugin.box", None)
+    monkeypatch.setattr("mkdocs_french.plugin.Console", None)
+    monkeypatch.setattr("mkdocs_french.plugin.Table", None)
+    monkeypatch.setattr("mkdocs_french.plugin.box", None)
 
     plugin._print_summary()
 

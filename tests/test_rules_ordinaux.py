@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from mkdocs_plugin_french.rules import ordinaux
+from mkdocs_french.rules import ordinaux
 
 
 def test_det_ordinaux_detects_various_suffixes():

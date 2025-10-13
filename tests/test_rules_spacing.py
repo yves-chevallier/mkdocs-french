@@ -1,5 +1,5 @@
-from mkdocs_plugin_french.constants import NBSP, NNBSP, ELLIPSIS
-from mkdocs_plugin_french.rules.spacing import det_spacing, fix_spacing
+from mkdocs_french.constants import NBSP, NNBSP, ELLIPSIS
+from mkdocs_french.rules.spacing import det_spacing, fix_spacing
 
 
 def test_fix_spacing_inserts_non_breaking_spaces():

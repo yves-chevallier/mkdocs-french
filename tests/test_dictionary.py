@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from mkdocs_plugin_french.dictionary import Dictionary
+import gzip
+import json
+
+from mkdocs_french.artifacts import SCHEMA_VERSION
+from mkdocs_french.dictionary import Dictionary
 
 
 def make_dictionary(words: set[str]) -> Dictionary:
@@ -58,3 +62,32 @@ def test_contains_returns_sorted_matches():
     dictionary = make_dictionary({"œuvre", "cœur", "autre"})
 
     assert dictionary.contains("œ") == ("cœur", "œuvre")
+
+
+def test_dictionary_loads_static_artifact(tmp_path):
+    artifact = tmp_path / "morphalou_data.json.gz"
+    payload = {
+        "schema_version": SCHEMA_VERSION,
+        "generated_at": "2024-01-01T00:00:00Z",
+        "source": {"listing_url": "", "zip_pattern": ""},
+        "stats": {"word_count": 2, "ligature_entries": 1, "accent_entries": 1},
+        "words": ["oeuvre", "TEST"],
+        "ligature_map": {"oeuvre": "œuvre"},
+        "accent_map": {"test": ["test", "tést"]},
+    }
+    with gzip.open(artifact, "wt", encoding="utf-8") as handle:
+        json.dump(payload, handle, ensure_ascii=False)
+
+    dictionary = Dictionary(use_static_data=True, data_path=artifact)
+
+    assert dictionary.ligaturize("oeuvre") == "œuvre"
+    assert dictionary.accentize("TEST") == "TÉST"
+    assert "œuvre" in dictionary.words
+
+
+def test_dictionary_cleanup_removes_temp_dir():
+    dictionary = Dictionary()
+    workdir = dictionary.workdir
+    assert workdir.exists()
+    dictionary.cleanup()
+    assert not workdir.exists()

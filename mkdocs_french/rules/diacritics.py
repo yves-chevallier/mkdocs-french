@@ -4,13 +4,15 @@ import re
 from typing import List
 
 from .base import RuleDefinition, RuleResult
-from ..dictionary import dictionary
+from ..dictionary import get_dictionary
 
 WORD_PATTERN = re.compile(r"\b[^\W\d_]+\b", re.UNICODE)
 
 
 def det_diacritics(text: str) -> List[RuleResult]:
     results: List[RuleResult] = []
+    dictionary = get_dictionary()
+
     for match in WORD_PATTERN.finditer(text):
         word = match.group(0)
         if not word:
@@ -32,6 +34,8 @@ def det_diacritics(text: str) -> List[RuleResult]:
 
 
 def fix_diacritics(text: str) -> str:
+    dictionary = get_dictionary()
+
     def repl(match: re.Match) -> str:
         word = match.group(0)
         if not word.isupper():

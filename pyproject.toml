@@ -6,7 +6,6 @@ authors = ["Yves Chevallier <yves.chevallier@heig-vd.ch>"]
 license = "MIT"
 readme = "README.md"
 packages = [
-    { include = "mkdocs_plugin_french" },
     { include = "mkdocs_french" },
 ]
 keywords = ["mkdocs", "python", "wiki", "french"]
@@ -53,8 +52,11 @@ mkdocstrings = {extras = ["python"], version = "^0.30.1"}
 wordfreq = "^3.1.1"
 mkdocs-pills = "^0.1.0"
 
+[tool.poetry.build]
+script = "scripts/build_artifacts.py"
+
 [tool.pytest.ini_options]
-addopts = ["--cov=mkdocs_plugin_french", "--cov-report=term-missing", "--cov-fail-under=90"]
+addopts = ["--cov=mkdocs_french", "--cov-report=term-missing", "--cov-fail-under=90"]
 testpaths = ["tests"]
 filterwarnings = [
     "ignore:.*defaulting to 'en'.*:UserWarning",
@@ -62,4 +64,4 @@ filterwarnings = [
 ]
 
 [tool.poetry.plugins."mkdocs.plugins"]
-"french" = "mkdocs_plugin_french.plugin:FrenchPlugin"
+"french" = "mkdocs_french.plugin:FrenchPlugin"

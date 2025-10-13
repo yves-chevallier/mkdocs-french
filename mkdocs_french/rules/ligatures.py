@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from .base import RuleDefinition, RuleResult
-from ..dictionary import dictionary
+from ..dictionary import get_dictionary
 
 WORD_PATTERN = re.compile(r"\b[^\W\d_]+\b", re.UNICODE)
 
@@ -14,6 +14,8 @@ def _needs_ligature(word: str) -> bool:
 
 def det_ligatures(text: str) -> list[RuleResult]:
     results: list[RuleResult] = []
+    dictionary = get_dictionary()
+
     for match in WORD_PATTERN.finditer(text):
         word = match.group(0)
         if not _needs_ligature(word):
@@ -33,6 +35,8 @@ def det_ligatures(text: str) -> list[RuleResult]:
 
 
 def fix_ligatures(text: str) -> str:
+    dictionary = get_dictionary()
+
     def repl(match: re.Match) -> str:
         word = match.group(0)
         if not _needs_ligature(word):

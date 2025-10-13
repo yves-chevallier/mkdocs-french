@@ -80,7 +80,6 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
     def __init__(self):
         super().__init__()
         self._collected_warnings: List[dict] = []
-        self._temp_css_created: Set[Path] = set()
         self._extra_css: Set[Path] = set()
         self._admonition_translations: dict = {}
         self._site_dir: Optional[Path] = None
@@ -98,9 +97,21 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         if self.config.justify:
             self._extra_css.add(package_dir / "css" / "french-justify.css")
 
-        self._site_dir = Path(config.site_dir)
+        if isinstance(config, dict):
+            site_dir = Path(config.get("site_dir", "site"))
+            extra_css = config.setdefault("extra_css", [])
+        else:
+            site_dir_value = getattr(config, "site_dir", None)
+            if site_dir_value is None:
+                site_dir_value = config["site_dir"]
+            site_dir = Path(site_dir_value)
+            extra_css = config["extra_css"]
+
+        self._site_dir = site_dir
         for entry in self._extra_css:
-            config["extra_css"].append("css/" + Path(entry).name)
+            css_name = "css/" + Path(entry).name
+            if css_name not in extra_css:
+                extra_css.append(css_name)
 
         return config
 
@@ -289,8 +300,8 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
 
         return "".join(lines)
 
-    def on_post_build(self, *, config: MkDocsConfig) -> None:
-        site_dir = Path(config.site_dir)
+    def on_post_build(self, config: MkDocsConfig | dict, **_: object) -> None:
+        site_dir = Path(config["site_dir"]) if isinstance(config, dict) else Path(config.site_dir)
         css_dir = site_dir / "css"
 
         css_dir.mkdir(parents=True, exist_ok=True)
