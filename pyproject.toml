@@ -39,6 +39,7 @@ pydantic = "^2.9.2"
 unidecode = "^1.4.0"
 beautifulsoup4 = "^4.14.2"
 rich = "^13.9.2"
+requests = "^2.32.3"
 
 [tool.poetry.group.dev.dependencies]
 poetry = "^1.8.3"
