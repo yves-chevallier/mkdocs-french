@@ -1,8 +1,8 @@
 # MkDocs French Plugin
 
-Ce plugin MkDocs améliore la typographie française et corrige automatiquement certaines erreurs courantes dans les documents Markdown. L'ouvrage de référence pour les conventions typographiques en français est [Petites leçons de typographie](https://jacques-andre.fr/faqtypo/lessons.pdf) de Jacques André.
+Ce plugin MkDocs améliore la typographie française et corrige automatiquement certaines erreurs courantes dans les documents Markdown. L'ouvrage de référence utilisé pour les conventions typographiques en français est [Petites leçons de typographie](https://jacques-andre.fr/faqtypo/lessons.pdf) de Jacques André.
 
-Le plugin est largement configurable, chaque règle peut être activée ou désactivée, et le comportement peut être ajusté pour corriger automatiquement les erreurs (`fix`), émettre un avertissement (`warn`) ou ignorer la règle (`ignore`).
+Ce plugin est largement configurable, chaque règle peut être activée ou désactivée, et le comportement peut être ajusté pour corriger automatiquement les erreurs (`fix`), émettre un avertissement (`warn`) ou ignorer la règle (`ignore`).
 
 Les règles traitées sont :
 
@@ -17,17 +17,17 @@ Les règles traitées sont :
 - Casse et typographie courante (jours, mois, gentilés en minuscule)
 - Traduction des admonitions standard (warning → Avertissement, etc.)
 
-## Ponctuation
+## Espacement et ponctuation
 
-En français, les ponctuations doubles sont précédées d'une espace insécable. Markdown ne le gère pas nativement. Si l'éditeur ajoute manuellement une espace comme dans `ceci :`, le risque est que le rendu HTML puisse ajouter une césure de ligne entre le mot et la ponctuation. Inversément, si l'éditeur n'ajoute pas d'espace, le rendu n'est pas correct.
+En français, les ponctuations doubles sont précédées d'une espace insécable U+202F. Markdown ne le gère pas nativement. Si l'éditeur ajoute manuellement une espace comme dans `ceci :`, le risque est que le rendu HTML puisse ajouter une césure de ligne entre le mot et la ponctuation. Inversément, si l'éditeur n'ajoute pas d'espace, le rendu n'est pas correct.
 
-Le plugin ajoute automatiquement une espace insécable U+202F avant les ponctuations doubles: `; ! ?` et U+00A0 avant les deux-points `:`.
+Le plugin ajoute automatiquement une espace insécable U+202F avant les ponctuations doubles: `; ! ?` et une espace fine inssécable U+00A0 avant les deux-points `:`.
 
 Les points de suspension `...` sont remplacés par le caractère Unicode U+2026 `…`.
 
-Les guillemets français `« »` sont également gérés. Le plugin ajoute une espace insécable (U+202F) après le guillemet ouvrant et avant le guillemet fermant. Il remplacera également les guillemets droits `"` par des guillemets français.
+Les guillemets français `« »` sont également gérés. Le plugin ajoute une espace insécable après le guillemet ouvrant et avant le guillemet fermant. Il remplacera également les guillemets droits `"` par des guillemets français.
 
-L'apostrophe droite `'` est remplacée par l'apostrophe typographique U+2019 `’` pour l'élision comme dans "l'homme" ou "aujourd'hui".
+L'apostrophe droite `'` U+0027 est remplacée par l'apostrophe typographique U+2019 `’` pour l'élision comme dans "l'homme" ou "aujourd'hui". Ceci permet la selection correcte du mot dans certains navigateurs et garantit l'absence de césure.
 
 Correction des contractions avec la virgule et le point :
 

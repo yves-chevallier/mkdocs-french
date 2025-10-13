@@ -11,6 +11,7 @@ from typing import List, Optional, Set
 from bs4 import BeautifulSoup, NavigableString, Comment
 from mkdocs.config import config_options as c
 from mkdocs.config.base import Config
+from mkdocs.config.defaults import MkDocsConfig
 from mkdocs.plugins import BasePlugin
 from .constants import SKIP_TAGS, SKIP_PARENTS, DEFAULT_ADMONITION_TRANSLATIONS
 from .rules import ALL_RULES, RuleDefinition
@@ -53,6 +54,7 @@ class FrenchPluginConfig(Config):
     diacritics = c.Choice((Level.ignore, Level.warn, Level.fix), default=Level.warn)
 
     # options diverses
+    justify = c.Type(bool, default=True)  # injecte CSS pour texte justifié et césures
     enable_css_bullets = c.Type(bool, default=True)  # injecte CSS pour puces “–”
     css_scope_selector = c.Type(str, default="body")  # conservé pour compatibilité
     admonitions = c.Choice((Level.ignore, Level.fix), default=Level.fix)
@@ -67,17 +69,32 @@ class FrenchPluginConfig(Config):
 
 
 class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
-    def on_config(self, config, **kwargs):
+    def __init__(self):
+        super().__init__()
         self._collected_warnings: List[dict] = []
         self._temp_css_created: Set[Path] = set()
+        self._extra_css: Set[Path] = set()
+        self._admonition_translations: dict = {}
+        self._site_dir: Optional[Path] = None
+
+    def on_config(self, config, **kwargs):
+
         translations = DEFAULT_ADMONITION_TRANSLATIONS.copy()
         for key, value in self.config.admonition_translations.items():
             if value is not None:
                 translations[key.lower()] = value
         self._admonition_translations = translations
+
+        package_dir = Path(__file__).parent
         if self.config.enable_css_bullets:
-            self._ensure_css_in_docs(config, ["french-bullet.css"])
-            self._ensure_extra_css(config, ["css/french-bullet.css"])
+            self._extra_css.add(package_dir / "css" / "french-bullet.css")
+        if self.config.justify:
+            self._extra_css.add(package_dir / "css" / "french-justify.css")
+
+        self._site_dir = Path(config.site_dir)
+        for entry in self._extra_css:
+           config["extra_css"].append("css/" + Path(entry).name)
+
         return config
 
     def _apply_rule(
@@ -94,7 +111,7 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
             for _s, _e, msg, prev in rule.detector(text):
                 line_info = f"{src_path}:{cur_line}" if cur_line else src_path
                 prev_txt = f" → «{prev}»" if prev else ""
-                log.warning(f"[fr-typo:{rule.name}] {line_info}: {msg}{prev_txt}")
+                log.warning("[fr-typo:%s] %s: %s%s", rule.name, line_info, msg, prev_txt)
                 if self.config.summary:
                     self._collected_warnings.append(
                         {
@@ -110,11 +127,8 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         return rule.fixer(text)
 
     def on_page_content(self, html, page, config, files):
+        """Traite le HTML généré d'une page."""
         soup = BeautifulSoup(html, "html.parser")
-
-        IGNORE_START = re.compile(r'FR-IGNORE-START', re.I)
-        IGNORE_END   = re.compile(r'FR-IGNORE-END', re.I)
-        INLINE_IGNORE = re.compile(r'FR-IGNORE', re.I)  # pour <!--fr-typo-ignore--> single
 
         # 1) Préparer : repérer tous les commentaires de type FRL (déjà présent)
         comments = list(soup.find_all(string=lambda t: isinstance(t, Comment)))
@@ -245,58 +259,20 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
 
         return "".join(lines)
 
-    def on_post_page(self, output_content, page, config):
-        return output_content
+    def on_post_build(self, *, config: MkDocsConfig) -> None:
 
-    def on_post_build(self, config):
-        if self.config.enable_css_bullets:
-            self._copy_css_to_site(config, ["french-bullet.css"])
-            self._cleanup_temp_css()
+        site_dir = Path(config.site_dir)
+        css_dir = site_dir / "css"
+
+        css_dir.mkdir(parents=True, exist_ok=True)
+        for entry in self._extra_css:
+            dst = css_dir / Path(entry).name
+            shutil.copyfile(entry, dst)
+
+
         if self.config.summary and self._collected_warnings:
             self._print_summary()
 
-    def _asset_path(self, filename: str) -> Path:
-        return Path(__file__).parent / "css" / filename
-
-    def _ensure_css_in_docs(self, config, filenames: List[str]):
-        docs_dir = Path(config["docs_dir"])
-        target_dir = docs_dir / "css"
-        for filename in filenames:
-            target_path = target_dir / filename
-            if not target_path.exists():
-                target_dir.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(self._asset_path(filename), target_path)
-                self._temp_css_created.add(target_path)
-
-    def _copy_css_to_site(self, config, filenames: List[str]):
-        site_css_dir = Path(config["site_dir"]) / "css"
-        site_css_dir.mkdir(parents=True, exist_ok=True)
-        for filename in filenames:
-            shutil.copy2(self._asset_path(filename), site_css_dir / filename)
-
-    def _cleanup_temp_css(self):
-        for temp_path in list(self._temp_css_created):
-            try:
-                temp_path.unlink()
-            except FileNotFoundError:
-                pass
-            parent = temp_path.parent
-            try:
-                next(parent.iterdir())
-            except StopIteration:
-                parent.rmdir()
-            except FileNotFoundError:
-                pass
-            self._temp_css_created.discard(temp_path)
-
-    def _ensure_extra_css(self, config, entries: List[str]):
-        extra_css = config.get("extra_css")
-        if extra_css is None:
-            extra_css = []
-            config["extra_css"] = extra_css
-        for entry in entries:
-            if entry not in extra_css:
-                extra_css.append(entry)
 
     def _print_summary(self):
         if Table is None or Console is None or box is None:

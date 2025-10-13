@@ -5,6 +5,7 @@ repo_name: yves-chevallier/mkdocs-french
 repo_url: https://github.com/yves-chevallier/mkdocs-french
 copyright: Copyright &copy; 2025 Yves Chevallier
 theme:
+  language: fr
   name: material
   features:
     - navigation.instant
