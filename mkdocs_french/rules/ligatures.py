@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import re
-from .base import RuleDefinition, RuleResult
+
 from ..dictionary import get_dictionary
+from .base import RuleDefinition, RuleResult
+
 
 WORD_PATTERN = re.compile(r"\b[^\W\d_]+\b", re.UNICODE)
 

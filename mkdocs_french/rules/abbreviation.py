@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import re
+
 from .base import RuleDefinition, RuleResult, regex_finditer
+
 
 _ABBR_BAD = re.compile(r"\b(c\s*[-\.]?\s*a\s*[-\.]?\s*d)\b", re.I)
 _ABBR_PEX = re.compile(r"\b(p\s*\.?\s*ex)\b\.?", re.I)

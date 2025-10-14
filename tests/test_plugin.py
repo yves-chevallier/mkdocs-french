@@ -11,8 +11,7 @@ from mkdocs_french.rules.base import RuleDefinition
 
 def test_on_config_updates_extra_and_translations(tmp_path, plugin_factory):
     plugin = plugin_factory(
-        enable_css_bullets=True,
-        admonition_translations={"warning": "Attention"},
+        enable_css_bullets=True, admonition_translations={"warning": "Attention"}
     )
     docs_dir = tmp_path / "docs"
     site_dir = tmp_path / "site"
@@ -111,7 +110,7 @@ def test_print_summary_with_rich(monkeypatch, plugin_factory):
             "rule": "spacing",
             "file": "doc.md",
             "line": 3,
-            "message": "Espace fine", 
+            "message": "Espace fine",
             "preview": ";",
         }
     ]
@@ -135,7 +134,9 @@ def test_print_summary_with_rich(monkeypatch, plugin_factory):
 
     monkeypatch.setattr("mkdocs_french.plugin.Table", DummyTable)
     monkeypatch.setattr("mkdocs_french.plugin.Console", DummyConsole)
-    monkeypatch.setattr("mkdocs_french.plugin.box", type("_Box", (), {"ROUNDED": object()}))
+    monkeypatch.setattr(
+        "mkdocs_french.plugin.box", type("_Box", (), {"ROUNDED": object()})
+    )
 
     plugin._print_summary()
 
@@ -149,7 +150,7 @@ def test_print_plain_summary_outputs(capsys, plugin_factory):
             "rule": "spacing",
             "file": "doc.md",
             "line": 2,
-            "message": "Espace fine", 
+            "message": "Espace fine",
             "preview": ";",
         }
     ]
@@ -181,10 +182,7 @@ def test_apply_rule_warn_logs_and_collects_summary(plugin_factory, caplog):
         return [(0, 5, "Message de test", "fixe")]
 
     rule = RuleDefinition(
-        name="dummy",
-        config_attr="spacing",
-        detector=detector,
-        fixer=lambda text: text,
+        name="dummy", config_attr="spacing", detector=detector, fixer=lambda text: text
     )
 
     with caplog.at_level(logging.WARNING, logger="mkdocs.plugins.fr_typo"):
@@ -291,9 +289,7 @@ def test_on_page_content_respects_ignore_markers(plugin_factory, page):
 
 def test_on_page_content_handles_documented_spacing_cases(plugin_factory, page):
     plugin = plugin_factory(
-        casse=Level.ignore,
-        diacritics=Level.ignore,
-        units=Level.ignore,
+        casse=Level.ignore, diacritics=Level.ignore, units=Level.ignore
     )
     html = (
         "<p>Tu n'as pas pris ton parapluie!. "
@@ -403,6 +399,8 @@ def test_on_page_content_uppercases_countries(plugin_factory, page):
     soup = BeautifulSoup(result, "html.parser")
 
     assert soup.p.get_text() == "voyage en France et Espagne"
+
+
 def test_print_summary_plain_fallback(plugin_factory, capsys, monkeypatch):
     plugin = plugin_factory(summary=True)
     plugin._collected_warnings = [
@@ -447,10 +445,7 @@ def test_functional_admonition_translation(plugin_factory, page, render_with_plu
     plugin = plugin_factory()
 
     html = render_with_plugin(
-        plugin,
-        "!!! warning\n    attention\n",
-        page,
-        extensions=["admonition"],
+        plugin, "!!! warning\n    attention\n", page, extensions=["admonition"]
     )
 
     soup = BeautifulSoup(html, "html.parser")

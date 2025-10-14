@@ -24,9 +24,7 @@ class DummyDictionary:
 def test_build_morphalou_artifact_generates_payload(monkeypatch, tmp_path, capsys):
     target = tmp_path / "artifact.json.gz"
 
-    monkeypatch.setattr(
-        "mkdocs_french.artifacts.build.Dictionary", DummyDictionary
-    )
+    monkeypatch.setattr("mkdocs_french.artifacts.build.Dictionary", DummyDictionary)
 
     path = build_morphalou_artifact(target, quiet=False)
     assert path == target
@@ -47,9 +45,7 @@ def test_build_morphalou_artifact_refuses_existing_file(monkeypatch, tmp_path):
     target = tmp_path / "artifact.json.gz"
     target.write_bytes(b"existing")
 
-    monkeypatch.setattr(
-        "mkdocs_french.artifacts.build.Dictionary", DummyDictionary
-    )
+    monkeypatch.setattr("mkdocs_french.artifacts.build.Dictionary", DummyDictionary)
 
     with pytest.raises(FileExistsError):
         build_morphalou_artifact(target, quiet=True)

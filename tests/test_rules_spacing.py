@@ -1,4 +1,4 @@
-from mkdocs_french.constants import NBSP, NNBSP, ELLIPSIS
+from mkdocs_french.constants import ELLIPSIS, NBSP, NNBSP
 from mkdocs_french.rules.spacing import det_spacing, fix_spacing
 
 

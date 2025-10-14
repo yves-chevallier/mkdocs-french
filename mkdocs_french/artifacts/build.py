@@ -1,23 +1,19 @@
 from __future__ import annotations
 
 import argparse
-import argparse
+from datetime import datetime, timezone
 import gzip
 import json
-import sys
-from datetime import datetime, timezone
 from pathlib import Path
+import sys
 from typing import Iterable, Mapping
 
-from ..dictionary import Dictionary, LISTING_URL, ZIP_PATTERN
-from . import ARTIFACTS_DIR, SCHEMA_VERSION, default_data_path
+from ..dictionary import LISTING_URL, ZIP_PATTERN, Dictionary
+from . import SCHEMA_VERSION, default_data_path
 
 
 def build_morphalou_artifact(
-    output_path: Path | None = None,
-    *,
-    force: bool = False,
-    quiet: bool = False,
+    output_path: Path | None = None, *, force: bool = False, quiet: bool = False
 ) -> Path:
     """
     Build the compressed Morphalou artifact ready to be versioned.
@@ -67,10 +63,7 @@ def _serialize_dictionary(dictionary: Dictionary) -> dict:
         "schema_version": SCHEMA_VERSION,
         "normalized": True,
         "generated_at": datetime.now(tz=timezone.utc).isoformat(),
-        "source": {
-            "listing_url": LISTING_URL,
-            "zip_pattern": ZIP_PATTERN.pattern,
-        },
+        "source": {"listing_url": LISTING_URL, "zip_pattern": ZIP_PATTERN.pattern},
         "stats": {
             "word_count": len(words),
             "ligature_entries": len(ligature_map),
@@ -83,7 +76,9 @@ def _serialize_dictionary(dictionary: Dictionary) -> dict:
 
 
 def _write_gz_json(path: Path, payload: Mapping[str, object]) -> None:
-    data = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    data = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode(
+        "utf-8"
+    )
     with gzip.open(path, mode="wb") as handle:
         handle.write(data)
 
@@ -95,9 +90,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         description="Generate the Morphalou artifact for mkdocs-plugin-french.",
     )
     parser.add_argument(
-        "--output",
-        type=Path,
-        help="Custom destination path for the generated file.",
+        "--output", type=Path, help="Custom destination path for the generated file."
     )
     parser.add_argument(
         "--force",
@@ -105,17 +98,13 @@ def main(argv: Iterable[str] | None = None) -> int:
         help="Overwrite the existing artifact if present.",
     )
     parser.add_argument(
-        "--quiet",
-        action="store_true",
-        help="Suppress most progress messages.",
+        "--quiet", action="store_true", help="Suppress most progress messages."
     )
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     try:
         target = build_morphalou_artifact(
-            args.output,
-            force=args.force,
-            quiet=args.quiet,
+            args.output, force=args.force, quiet=args.quiet
         )
     except Exception as exc:  # pragma: no cover - CLI
         print(f"Error: {exc}", file=sys.stderr)

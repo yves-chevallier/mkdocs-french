@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-
 from mkdocs_french.rules import diacritics
 
 
 class DummyDictionary:
     def accentize(self, word: str) -> str:
-        mapping = {
-            "ECOLE": "ÉCOLE",
-            "Ecole": "École",
-        }
+        mapping = {"ECOLE": "ÉCOLE", "Ecole": "École"}
         return mapping.get(word, word)
 
 

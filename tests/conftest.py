@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from pathlib import Path
 import sys
 import types
-from pathlib import Path
 from types import SimpleNamespace
 
 import markdown
 import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -111,10 +112,7 @@ def page(tmp_path):
     src_file.parent.mkdir(parents=True, exist_ok=True)
     src_file.write_text("# Dummy page\n", encoding="utf-8")
     return SimpleNamespace(
-        file=SimpleNamespace(
-            src_path="docs/index.md",
-            abs_src_path=str(src_file),
-        )
+        file=SimpleNamespace(src_path="docs/index.md", abs_src_path=str(src_file))
     )
 
 

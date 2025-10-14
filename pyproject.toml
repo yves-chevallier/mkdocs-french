@@ -70,3 +70,14 @@ filterwarnings = [
 
 [tool.poetry.plugins."mkdocs.plugins"]
 "french" = "mkdocs_french.plugin:FrenchPlugin"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]   # E/F (pycodestyle/pyflakes) + I (isort)
+
+[tool.ruff.lint.isort]
+# options utiles
+combine-as-imports = true
+force-sort-within-sections = true
+known-first-party = ["mkdocs_french"]         # adapte à ton package
+section-order = ["future","standard-library","third-party","first-party","local-folder"]
+lines-after-imports = 2

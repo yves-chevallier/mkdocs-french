@@ -1,11 +1,11 @@
 # mkdocs_fr_typo/plugin.py
 from __future__ import annotations
 
+from enum import Enum
 import logging
+from pathlib import Path
 import re
 import shutil
-from enum import Enum
-from pathlib import Path
 from typing import List, Optional, Set
 
 from bs4 import BeautifulSoup, Comment
@@ -14,18 +14,20 @@ from mkdocs.config import config_options as c
 from mkdocs.config.base import Config
 from mkdocs.config.defaults import MkDocsConfig
 from mkdocs.plugins import BasePlugin
+
 from .constants import (
-    SKIP_TAGS,
-    SKIP_PARENTS,
     DEFAULT_ADMONITION_TRANSLATIONS,
     FOREIGN_LOCUTIONS,
+    SKIP_PARENTS,
+    SKIP_TAGS,
 )
 from .rules import ALL_RULES, RuleDefinition
 
+
 try:  # rich is optional to keep compatibility without the dependency installed
+    from rich import box
     from rich.console import Console
     from rich.table import Table
-    from rich import box
 except ImportError:  # pragma: no cover - environment without rich
     Console = None
     Table = None
@@ -303,7 +305,11 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         return "".join(lines)
 
     def on_post_build(self, config: MkDocsConfig | dict, **_: object) -> None:
-        site_dir = Path(config["site_dir"]) if isinstance(config, dict) else Path(config.site_dir)
+        site_dir = (
+            Path(config["site_dir"])
+            if isinstance(config, dict)
+            else Path(config.site_dir)
+        )
         css_dir = site_dir / "css"
 
         css_dir.mkdir(parents=True, exist_ok=True)
@@ -419,11 +425,7 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
             line = str(entry["line"]) if entry["line"] else "—"
             suggestion = f"«{entry['preview']}»" if entry["preview"] else ""
             table.add_row(
-                entry["rule"],
-                entry["file"],
-                line,
-                entry["message"],
-                suggestion,
+                entry["rule"], entry["file"], line, entry["message"], suggestion
             )
 
         console = Console()

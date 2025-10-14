@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import re
+
+from ..constants import ELLIPSIS, NBSP, NNBSP
 from .base import RuleDefinition, RuleResult, regex_finditer
-from ..constants import NBSP, NNBSP, ELLIPSIS
+
 
 RE_PUNCT_HIGH = re.compile(r"\s*([;!?»])")
 RE_COLON = re.compile(r"\s*(:)")
@@ -73,8 +75,5 @@ def fix_spacing(text: str) -> str:
 
 
 RULE = RuleDefinition(
-    name="spacing",
-    config_attr="spacing",
-    detector=det_spacing,
-    fixer=fix_spacing,
+    name="spacing", config_attr="spacing", detector=det_spacing, fixer=fix_spacing
 )

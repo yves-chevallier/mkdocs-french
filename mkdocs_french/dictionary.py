@@ -1,21 +1,22 @@
 from __future__ import annotations
 
+from functools import lru_cache
 import gzip
 import json
 import logging
+from pathlib import Path
 import re
 import shutil
 import tempfile
-import zipfile
-from functools import lru_cache
-from pathlib import Path
 from typing import Dict, Iterable, Optional, Set, Tuple
-
-import requests
 import unicodedata
 import xml.etree.ElementTree as ET
+import zipfile
+
+import requests
 
 from .artifacts import SCHEMA_VERSION, default_data_path
+
 
 log = logging.getLogger("mkdocs.plugins.fr_typo")
 
@@ -369,7 +370,9 @@ class Dictionary:
             log.warning("Artéfact Morphalou invalide : 'words' doit être une liste.")
             return False
         if not isinstance(lig_field, dict):  # pragma: no cover - validation guard
-            log.warning("Artéfact Morphalou invalide : 'ligature_map' doit être un dict.")
+            log.warning(
+                "Artéfact Morphalou invalide : 'ligature_map' doit être un dict."
+            )
             return False
         if not isinstance(accent_field, dict):  # pragma: no cover - validation guard
             log.warning("Artéfact Morphalou invalide : 'accent_map' doit être un dict.")
@@ -549,8 +552,6 @@ class Dictionary:
                 other_variants.append(candidate)
 
         return tuple(ascii_variants + sorted(other_variants))
-
-
 
 
 @lru_cache(maxsize=1)

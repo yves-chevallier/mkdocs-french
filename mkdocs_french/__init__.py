@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from .cli import main
 
+
 if TYPE_CHECKING:  # pragma: no cover - imported only for typing
     from .plugin import FrenchPlugin, Level
 

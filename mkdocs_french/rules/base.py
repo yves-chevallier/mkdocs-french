@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, List, Optional, Tuple
 import re
+from typing import Callable, List, Optional, Tuple
+
 
 RuleResult = Tuple[int, int, str, Optional[str]]
 

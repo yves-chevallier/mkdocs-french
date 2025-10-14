@@ -3,85 +3,28 @@ from __future__ import annotations
 import re
 from typing import List, Tuple
 
-from .base import RuleDefinition, RuleResult
 from ..constants import NBSP, NNBSP
+from .base import RuleDefinition, RuleResult
 
+
+# fmt: off
 SI_PREFIXES = [
-    "Y",
-    "Z",
-    "E",
-    "P",
-    "T",
-    "G",
-    "M",
-    "k",
-    "h",
-    "da",
-    "d",
-    "c",
-    "m",
-    "µ",
-    "u",
-    "n",
-    "p",
-    "f",
-    "a",
-    "z",
-    "y",
+    "Y", "Z", "E", "P", "T", "G", "M", "k", "h", "da",
+    "d", "c", "m", "µ", "u", "n", "p", "f", "a", "z", "y",
 ]
 
 PREFIXED_BASE_UNITS = {
-    "m",
-    "g",
-    "s",
-    "A",
-    "K",
-    "mol",
-    "cd",
-    "Hz",
-    "N",
-    "Pa",
-    "J",
-    "W",
-    "C",
-    "V",
-    "F",
-    "Ω",
-    "Ohm",
-    "S",
-    "Wb",
-    "T",
-    "H",
-    "L",
-    "l",
-    "B",
-    "bit",
+    "m", "g", "s", "A", "K", "mol", "cd", "Hz", "N", "Pa",
+    "J", "W", "C", "V", "F", "Ω", "Ohm", "S", "Wb", "T", "H",
+    "L", "l", "B", "bit",
 }
 
 NON_PREFIXED_UNITS = {
-    "%",
-    "‰",
-    "ppm",
-    "ppb",
-    "°C",
-    "°F",
-    "°",
-    "rad",
-    "sr",
-    "min",
-    "h",
-    "bar",
-    "atm",
-    "mmHg",
-    "Pa",
-    "dB",
-    "g",
-    "kg",
-    "L",
-    "mL",
-    "kWh",
-    "Wh",
+    "%", "‰", "ppm", "ppb", "°C", "°F", "°", "rad", "sr",
+    "min", "h", "bar", "atm", "mmHg", "Pa", "dB", "g", "kg",
+    "L", "mL", "kWh", "Wh",
 }
+# fmt: on
 
 CURRENCY_UNITS = {"€", "$", "£", "¥", "CHF", "CAD", "USD"}
 
@@ -135,8 +78,5 @@ def fix_units(text: str) -> str:
 
 
 RULE = RuleDefinition(
-    name="units",
-    config_attr="units",
-    detector=det_units,
-    fixer=fix_units,
+    name="units", config_attr="units", detector=det_units, fixer=fix_units
 )

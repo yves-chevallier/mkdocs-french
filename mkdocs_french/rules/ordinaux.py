@@ -5,6 +5,7 @@ from typing import Optional
 
 from .base import RuleDefinition, RuleResult
 
+
 ORDINAL_SUFFIXES = [
     "ières",
     "ière",
@@ -33,8 +34,7 @@ ORDINAL_SUFFIXES = [
 ]
 
 ORDINAL_PATTERN = re.compile(
-    rf"\b(\d+)\s*(?<!\^)({'|'.join(ORDINAL_SUFFIXES)})\b",
-    re.IGNORECASE,
+    rf"\b(\d+)\s*(?<!\^)({'|'.join(ORDINAL_SUFFIXES)})\b", re.IGNORECASE
 )
 
 REPLACEMENTS = {
@@ -128,8 +128,5 @@ def fix_ordinaux(text: str) -> str:
 
 
 RULE = RuleDefinition(
-    name="ordinaux",
-    config_attr="ordinaux",
-    detector=det_ordinaux,
-    fixer=fix_ordinaux,
+    name="ordinaux", config_attr="ordinaux", detector=det_ordinaux, fixer=fix_ordinaux
 )

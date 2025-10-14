@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
+import sys
 from typing import Iterable
 
 from .artifacts.build import build_morphalou_artifact
@@ -10,8 +10,7 @@ from .artifacts.build import build_morphalou_artifact
 
 def main(argv: Iterable[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="mkdocs-french",
-        description="Auxiliary tooling for mkdocs-plugin-french.",
+        prog="mkdocs-french", description="Auxiliary tooling for mkdocs-plugin-french."
     )
     subparsers = parser.add_subparsers(dest="command")
 
@@ -26,10 +25,11 @@ def main(argv: Iterable[str] | None = None) -> int:
     return args.handler(args)
 
 
-def _configure_build_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+def _configure_build_parser(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
     build_parser = subparsers.add_parser(
-        "build",
-        help="Generate the compressed Morphalou artifacts.",
+        "build", help="Generate the compressed Morphalou artifacts."
     )
     build_parser.add_argument(
         "--output",
@@ -42,9 +42,7 @@ def _configure_build_parser(subparsers: argparse._SubParsersAction[argparse.Argu
         help="Overwrite the existing file if it already exists.",
     )
     build_parser.add_argument(
-        "--quiet",
-        action="store_true",
-        help="Silence progress messages.",
+        "--quiet", action="store_true", help="Silence progress messages."
     )
     build_parser.set_defaults(handler=_run_build)
 
@@ -52,9 +50,7 @@ def _configure_build_parser(subparsers: argparse._SubParsersAction[argparse.Argu
 def _run_build(args: argparse.Namespace) -> int:
     try:
         target = build_morphalou_artifact(
-            args.output,
-            force=args.force,
-            quiet=args.quiet,
+            args.output, force=args.force, quiet=args.quiet
         )
     except Exception as exc:  # pragma: no cover - CLI
         print(f"Error: {exc}", file=sys.stderr)

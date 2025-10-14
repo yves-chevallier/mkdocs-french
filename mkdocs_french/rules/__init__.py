@@ -1,12 +1,13 @@
-from .base import RuleDefinition, RuleResult  # noqa: F401
 from .abbreviation import RULE as ABBREVIATION_RULE
-from .ordinaux import RULE as ORDINAUX_RULE
-from .ligatures import RULE as LIGATURES_RULE
+from .base import RuleDefinition, RuleResult  # noqa: F401
 from .casse import RULE as CASSE_RULE
-from .spacing import RULE as SPACING_RULE
-from .quotes import RULE as QUOTES_RULE
-from .units import RULE as UNITS_RULE
 from .diacritics import RULE as DIACRITICS_RULE
+from .ligatures import RULE as LIGATURES_RULE
+from .ordinaux import RULE as ORDINAUX_RULE
+from .quotes import RULE as QUOTES_RULE
+from .spacing import RULE as SPACING_RULE
+from .units import RULE as UNITS_RULE
+
 
 ALL_RULES = [
     ABBREVIATION_RULE,

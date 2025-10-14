@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import re
-from .base import RuleDefinition, RuleResult, regex_finditer
+
 from ..constants import NNBSP
+from .base import RuleDefinition, RuleResult, regex_finditer
+
 
 RE_ASCII_QUOTES = re.compile(r'"([^"\n]+)"')
 
@@ -21,8 +23,5 @@ def fix_quotes(text: str) -> str:
 
 
 RULE = RuleDefinition(
-    name="quotes",
-    config_attr="quotes",
-    detector=det_quotes,
-    fixer=fix_quotes,
+    name="quotes", config_attr="quotes", detector=det_quotes, fixer=fix_quotes
 )

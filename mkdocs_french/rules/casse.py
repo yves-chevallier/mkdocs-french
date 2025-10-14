@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import re
+
 from .base import RuleDefinition, RuleResult
+
 
 MOIS = [
     "janvier",
@@ -109,8 +111,5 @@ def fix_casse(text: str) -> str:
 
 
 RULE = RuleDefinition(
-    name="casse",
-    config_attr="casse",
-    detector=det_casse,
-    fixer=fix_casse,
+    name="casse", config_attr="casse", detector=det_casse, fixer=fix_casse
 )
