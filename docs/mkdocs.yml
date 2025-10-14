@@ -9,7 +9,7 @@ theme:
   name: material
   logo: https://upload.wikimedia.org/wikipedia/commons/c/c3/Flag_of_France.svg
   font:
-    text: Open Sans
+    text: Source Sans 3
   features:
     - navigation.instant
     - navigation.tabs

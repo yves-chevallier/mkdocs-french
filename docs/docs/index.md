@@ -157,7 +157,17 @@ Le plugin remplace automatiquement certaines combinaisons de lettres par des lig
 
 ### Ligatures typographiques
 
-Certaines polices de caractères supportent les ligatures typographiques latines dites "discretionary" (facultatives). Elles sont disponibles dans le jeu de glyphes OpenType `liga` ou `dlig`. La police Noto Sans, le supporte.
+Certaines polices de caractères supportent les ligatures typographiques latines dites "discretionary" (facultatives). Elles sont disponibles dans le jeu de glyphes OpenType `liga` ou `dlig`. Hélas, la plupart des polices libres ne supportent pas ces ligatures.
+
+Les polices:
+
+- Raleway
+- Work Sans
+- Fira Sans
+- Source Sans 3
+- Alegreya Sans
+
+### Ligatures courantes
 
 | Ligature | Mot exemple    | Mot exemple     | Unicode |
 | -------- | -------------- | --------------- | ------- |
