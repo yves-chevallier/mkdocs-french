@@ -88,6 +88,7 @@ def _write_gz_json(path: Path, payload: Mapping[str, object]) -> None:
 
 
 def main(argv: Iterable[str] | None = None) -> int:
+    """Command-line interface for building the Morphalou artifact."""
     parser = argparse.ArgumentParser(
         prog="mkdocs-french build",
         description="Generate the Morphalou artifact for mkdocs-plugin-french.",

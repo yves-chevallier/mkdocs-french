@@ -327,6 +327,7 @@ class Dictionary:
 
     def _load_static_data(self) -> bool:
         """Attempt to load the pre-generated indexes from disk."""
+        log.info("Loading static dictionary data from '%s' ...", self._data_path)
         path = self._data_path
         if not path.exists():
             return False
@@ -367,6 +368,7 @@ class Dictionary:
             log.warning("Artéfact Morphalou invalide : 'accent_map' doit être un dict.")
             return False
 
+        log.info("Processing %d french words from static data...", len(words_field))
         words: Set[str] = set()
         for entry in words_field:
             if not isinstance(entry, str):
@@ -392,10 +394,13 @@ class Dictionary:
             log.warning("Artéfact Morphalou invalide : aucune entrée exploitable.")
             return False
 
+        log.info("Static dictionary data loaded successfully.")
         self.words = words.union(FALLBACK_WORDS)
         self._ligature_map = ligature_map
         self._accent_map = accent_map
         self._augment_indexes_with_fallbacks()
+
+        log.info("Dictionary is ready for use.")
         return True
 
     def _ensure_ready(self) -> None:
