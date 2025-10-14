@@ -65,6 +65,7 @@ def _serialize_dictionary(dictionary: Dictionary) -> dict:
 
     return {
         "schema_version": SCHEMA_VERSION,
+        "normalized": True,
         "generated_at": datetime.now(tz=timezone.utc).isoformat(),
         "source": {
             "listing_url": LISTING_URL,

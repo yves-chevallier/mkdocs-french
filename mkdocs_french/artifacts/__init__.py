@@ -8,7 +8,7 @@ from pathlib import Path
 
 ARTIFACTS_DIR = Path(__file__).resolve().parent
 DEFAULT_DATA_FILENAME = "morphalou_data.json.gz"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def default_data_path() -> Path:

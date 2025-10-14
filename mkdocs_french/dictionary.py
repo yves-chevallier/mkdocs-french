@@ -73,7 +73,7 @@ FALLBACK_WORDS: Set[str] = {
 }
 
 
-@lru_cache(maxsize=8192)
+@lru_cache(maxsize=131072)
 def _strip_diacritics_cached(s: str) -> str:
     """Cached version of diacritic stripping."""
     normalized = unicodedata.normalize("NFD", s)
@@ -346,7 +346,14 @@ class Dictionary:
             return False
 
         version = payload.get("schema_version")
-        if version != SCHEMA_VERSION:
+        if version == SCHEMA_VERSION:
+            fast_path = payload.get("normalized", False)
+        elif version == 1:
+            log.info(
+                "Artéfact Morphalou ancien (schema=1) détecté : chargement en mode compatibilité."
+            )
+            fast_path = False
+        else:
             log.info(
                 "Artéfact Morphalou incompatible (schema=%s, attendu=%s).",
                 version,
@@ -368,27 +375,44 @@ class Dictionary:
             log.warning("Artéfact Morphalou invalide : 'accent_map' doit être un dict.")
             return False
 
-        log.info("Processing %d french words from static data...", len(words_field))
-        words: Set[str] = set()
-        for entry in words_field:
-            if not isinstance(entry, str):
-                continue
-            item = entry.strip()
-            if item and self._is_potential_word(item):
-                words.add(item)
+        if fast_path:
+            log.info(
+                "Static dictionary data flagged as normalized; using fast loading path."
+            )
+            words = {entry for entry in words_field if isinstance(entry, str)}
+            ligature_map = {
+                key: value
+                for key, value in lig_field.items()
+                if isinstance(key, str) and isinstance(value, str)
+            }
+            accent_map = {
+                key: tuple(variants)
+                for key, variants in accent_field.items()
+                if isinstance(key, str) and isinstance(variants, list)
+            }
+        else:
+            log.info("Processing %d french words from static data...", len(words_field))
+            words = {
+                item
+                for entry in words_field
+                if isinstance(entry, str)
+                for item in (entry.strip(),)
+                if item and self._is_potential_word(item)
+            }
 
-        ligature_map: Dict[str, str] = {}
-        for key, value in lig_field.items():
-            if isinstance(key, str) and isinstance(value, str):
-                ligature_map[key] = value
+            ligature_map = {
+                key: value
+                for key, value in lig_field.items()
+                if isinstance(key, str) and isinstance(value, str)
+            }
 
-        accent_map: Dict[str, Tuple[str, ...]] = {}
-        for key, variants in accent_field.items():
-            if not isinstance(key, str) or not isinstance(variants, list):
-                continue
-            normalized = self._normalize_accent_entry(key, variants)
-            if normalized:
-                accent_map[key] = normalized
+            accent_map = {}
+            for key, variants in accent_field.items():
+                if not isinstance(key, str) or not isinstance(variants, list):
+                    continue
+                normalized = self._normalize_accent_entry(key, variants)
+                if normalized:
+                    accent_map[key] = normalized
 
         if not words:  # pragma: no cover - validation guard
             log.warning("Artéfact Morphalou invalide : aucune entrée exploitable.")
@@ -488,28 +512,9 @@ class Dictionary:
         if cached is not None:
             return cached
 
-        matches: Set[str] = set()
-        ascii_present = False
-        for word in self.words:
-            lower_word = word.lower()
-            if _strip_diacritics_cached(lower_word) != base:
-                continue
-            if lower_word == base:
-                ascii_present = True
-            else:
-                matches.add(lower_word)
-
-        if not matches and not ascii_present:
-            self._accent_map[base] = ()
-            return ()
-
-        ordered = []
-        if ascii_present:
-            ordered.append(base)
-        ordered.extend(sorted(matches))
-        result = tuple(ordered)
-        self._accent_map[base] = result
-        return result
+        # Bases absent from the precomputed map have no accent variants.
+        self._accent_map[base] = ()
+        return ()
 
     def _augment_indexes_with_fallbacks(self) -> None:
         """Inject fallback words into ligature and diacritic indexes."""
