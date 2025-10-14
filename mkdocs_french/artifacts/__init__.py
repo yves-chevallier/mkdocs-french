@@ -13,7 +13,11 @@ SCHEMA_VERSION = 2
 
 
 def default_data_path() -> Path:
-    """Return the path to the main Morphalou artifact."""
+    """Return the path to the main Morphalou artifact.
+
+    Returns:
+        Absolute path pointing to the gzipped JSON artifact.
+    """
     return ARTIFACTS_DIR / DEFAULT_DATA_FILENAME
 
 

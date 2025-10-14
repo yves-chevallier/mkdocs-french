@@ -1,10 +1,12 @@
+"""Rules ensuring proper spacing around measurement and currency units."""
+
 from __future__ import annotations
 
 import re
 from typing import List, Tuple
 
 from ..constants import NBSP, NNBSP
-from .base import RuleDefinition, RuleResult
+from .base import Rule, RuleResult
 
 
 # fmt: off
@@ -30,6 +32,23 @@ CURRENCY_UNITS = {"€", "$", "£", "¥", "CHF", "CAD", "USD"}
 
 
 def build_unit_patterns(prefixed_units: set[str]) -> Tuple[re.Pattern, List[str]]:
+    """Build a compiled regex and sorted unit list for detection.
+
+    Args:
+        prefixed_units: Set of SI base units optionally prefixed.
+
+    Returns:
+        Tuple containing the compiled pattern and the sorted unit list used to
+        preserve greedy matching.
+
+    Examples:
+        >>> from mkdocs_french.rules.units import build_unit_patterns, PREFIXED_UNITS_EXPANDED
+        >>> pattern, units = build_unit_patterns(PREFIXED_UNITS_EXPANDED)
+        >>> bool(pattern.search("5kg"))
+        True
+        >>> units[0] == max(units, key=len)
+        True
+    """
     units: set[str] = set()
     units.update(prefixed_units)
     units.update(NON_PREFIXED_UNITS)
@@ -52,31 +71,55 @@ for base in PREFIXED_BASE_UNITS:
 UNIT_PATTERN, SORTED_UNITS = build_unit_patterns(PREFIXED_UNITS_EXPANDED)
 
 
-def det_units(text: str) -> list[RuleResult]:
-    results: List[RuleResult] = []
-    for match in UNIT_PATTERN.finditer(text):
-        sep = match.group("sep")
-        if NBSP in sep or NNBSP in sep:
-            continue
-        number = match.group("number")
-        unit = match.group("unit")
-        start, end = match.span()
-        preview = f"{number}{NNBSP}{unit}"
-        results.append(
-            (start, end, f"Unités : «{match.group(0)}» → «{preview}»", preview)
-        )
-    return results
+class UnitsRule(Rule):
+    """Ensure narrow non-breaking spaces are used with units and currencies."""
 
+    def __init__(self) -> None:
+        """Initialize the rule with the registry metadata."""
+        super().__init__(name="units", config_attr="units")
 
-def fix_units(text: str) -> str:
-    def repl(match: re.Match) -> str:
-        number = match.group("number")
-        unit = match.group("unit")
-        return f"{number}{NNBSP}{unit}"
+    def detect(self, text: str) -> list[RuleResult]:
+        """Return warnings for numbers that miss the expected spacing.
 
-    return UNIT_PATTERN.sub(repl, text)
+        Args:
+            text: Text fragment to inspect.
 
+        Returns:
+            A list of rule results describing each occurrence lacking the
+            narrow non-breaking space between the number and its unit.
+        """
+        results: List[RuleResult] = []
+        for match in UNIT_PATTERN.finditer(text):
+            sep = match.group("sep")
+            if NBSP in sep or NNBSP in sep:
+                continue
+            number = match.group("number")
+            unit = match.group("unit")
+            start, end = match.span()
+            preview = f"{number}{NNBSP}{unit}"
+            results.append(
+                (
+                    start,
+                    end,
+                    f"Unités : «{match.group(0)}» → «{preview}»",
+                    preview,
+                )
+            )
+        return results
 
-RULE = RuleDefinition(
-    name="units", config_attr="units", detector=det_units, fixer=fix_units
-)
+    def fix(self, text: str) -> str:
+        """Insert narrow non-breaking spaces between numbers and units.
+
+        Args:
+            text: Text fragment to mutate.
+
+        Returns:
+            The corrected text where relevant units now use a narrow
+            non-breaking space.
+        """
+        def repl(match: re.Match) -> str:
+            number = match.group("number")
+            unit = match.group("unit")
+            return f"{number}{NNBSP}{unit}"
+
+        return UNIT_PATTERN.sub(repl, text)

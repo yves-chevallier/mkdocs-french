@@ -1,3 +1,5 @@
+"""Shared constants used across mkdocs-french."""
+
 NBSP = "\u00a0"  # non-breaking space
 NNBSP = "\u202f"  # narrow non-breaking space
 ELLIPSIS = "\u2026"

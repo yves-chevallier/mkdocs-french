@@ -6,7 +6,25 @@ from bs4 import BeautifulSoup
 
 from mkdocs_french.constants import DEFAULT_ADMONITION_TRANSLATIONS, NBSP, NNBSP
 from mkdocs_french.plugin import Level
-from mkdocs_french.rules.base import RuleDefinition
+from mkdocs_french.rules.base import Rule
+from mkdocs_french.rules.orchestrator import RuleOrchestrator, RuleWarning
+
+
+class DummyRule(Rule):
+    def __init__(self, *, detector=None, fixer=None) -> None:
+        super().__init__(name="dummy", config_attr="spacing")
+        self._detector = detector or (lambda text: [])
+        self._fixer = fixer or (lambda text: text)
+        self.detect_called = False
+        self.fix_called = False
+
+    def detect(self, text: str):
+        self.detect_called = True
+        return self._detector(text)
+
+    def fix(self, text: str) -> str:
+        self.fix_called = True
+        return self._fixer(text)
 
 
 def test_on_config_updates_extra_and_translations(tmp_path, plugin_factory):
@@ -161,34 +179,59 @@ def test_print_plain_summary_outputs(capsys, plugin_factory):
     assert "Résumé des avertissements" in captured.out
 
 
-def test_apply_rule_ignore_returns_original_text(plugin_factory):
-    plugin = plugin_factory()
+def test_orchestrator_ignore_returns_original_text():
+    rule = DummyRule(fixer=lambda text: text + "!")
+    orchestrator = RuleOrchestrator([rule])
 
-    rule = RuleDefinition(
-        name="dummy",
-        config_attr="spacing",
-        detector=lambda text: [],
-        fixer=lambda text: text + "!",
-    )
+    processed, warnings = orchestrator.process("Text", lambda _rule: Level.ignore)
 
-    original = "Text"
-    assert plugin._apply_rule(rule, Level.ignore, original, "page.md", 1) == original
+    assert processed == "Text"
+    assert warnings == []
+    assert not rule.detect_called
+    assert not rule.fix_called
 
 
-def test_apply_rule_warn_logs_and_collects_summary(plugin_factory, caplog):
+def test_orchestrator_warn_collects_warnings():
+    rule = DummyRule(detector=lambda text: [(0, len(text), "Message de test", "fixe")])
+    orchestrator = RuleOrchestrator([rule])
+
+    processed, warnings = orchestrator.process("texte", lambda _rule: Level.warn)
+
+    assert processed == "texte"
+    assert len(warnings) == 1
+    warning = warnings[0]
+    assert warning.message == "Message de test"
+    assert warning.preview == "fixe"
+    assert rule.detect_called
+    assert not rule.fix_called
+
+
+def test_orchestrator_fix_uses_fixer():
+    rule = DummyRule(fixer=lambda text: text.upper())
+    orchestrator = RuleOrchestrator([rule])
+
+    processed, warnings = orchestrator.process("abc", lambda _rule: Level.fix)
+
+    assert processed == "ABC"
+    assert warnings == []
+    assert rule.fix_called
+    assert not rule.detect_called
+
+
+def test_emit_warnings_logs_and_collects_summary(plugin_factory, caplog):
     plugin = plugin_factory(summary=True)
-
-    def detector(text):
-        return [(0, 5, "Message de test", "fixe")]
-
-    rule = RuleDefinition(
-        name="dummy", config_attr="spacing", detector=detector, fixer=lambda text: text
+    rule = DummyRule()
+    warning = RuleWarning(
+        rule=rule,
+        start=0,
+        end=5,
+        message="Message de test",
+        preview="fixe",
     )
 
     with caplog.at_level(logging.WARNING, logger="mkdocs.plugins.fr_typo"):
-        result = plugin._apply_rule(rule, Level.warn, "texte", "docs/page.md", 7)
+        plugin._emit_warnings([warning], "docs/page.md", 7)
 
-    assert result == "texte"
     assert "Message de test" in caplog.text
     assert plugin._collected_warnings == [
         {
@@ -199,19 +242,6 @@ def test_apply_rule_warn_logs_and_collects_summary(plugin_factory, caplog):
             "preview": "fixe",
         }
     ]
-
-
-def test_apply_rule_fix_uses_fixer(plugin_factory):
-    plugin = plugin_factory()
-
-    rule = RuleDefinition(
-        name="uppercase",
-        config_attr="spacing",
-        detector=lambda text: [],
-        fixer=lambda text: text.upper(),
-    )
-
-    assert plugin._apply_rule(rule, Level.fix, "abc", "page.md", None) == "ABC"
 
 
 def test_on_page_markdown_translates_admonition_title(plugin_factory, page):

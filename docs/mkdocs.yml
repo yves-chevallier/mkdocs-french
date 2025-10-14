@@ -20,6 +20,8 @@ theme:
     - navigation.sections
     - toc.follow
     - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
     - search.highlight
     - search.share
     - search.suggest
@@ -77,13 +79,16 @@ extra_javascript:
 plugins:
   - search
   - mkdocstrings:
+      default_handler: python
       handlers:
         python:
           options:
-            docstring_style: google
-            line_length: 88
-            show_signature: true
             show_source: true
+            show_docstring_description: true
+            show_signature_annotations: true
+            docstring_style: google
+            separate_signature: true
+            merge_init_into_class: true
   - pills
   - french:
       ligatures: fix

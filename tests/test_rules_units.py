@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from mkdocs_french.rules import units
+from mkdocs_french.rules.units import UnitsRule
+
+
+rule = UnitsRule()
 
 
 def test_units_detector_identifies_missing_spacing():
     text = "Il fait 20°C et 50kg de charge, soit 10kWh."
-    results = units.det_units(text)
+    results = rule.detect(text)
     messages = [result[2] for result in results]
     assert "Unités : «20°C»" in messages[0]
     assert "Unités : «50kg»" in messages[1]
@@ -14,7 +17,7 @@ def test_units_detector_identifies_missing_spacing():
 
 def test_units_fix_inserts_narrow_nbsp():
     text = "20°C, 50kg et 10kWh"
-    fixed = units.fix_units(text)
+    fixed = rule.fix(text)
     assert "20 °C" in fixed
     assert "50 kg" in fixed
     assert "10 kWh" in fixed

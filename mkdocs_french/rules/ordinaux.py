@@ -1,9 +1,11 @@
+"""Rule that enforces Markdown-style ordinal notation (``1^er^``)."""
+
 from __future__ import annotations
 
 import re
 from typing import Optional
 
-from .base import RuleDefinition, RuleResult
+from .base import Rule, RuleResult
 
 
 ORDINAL_SUFFIXES = [
@@ -80,6 +82,25 @@ GENERAL_SUFFIX_MAP = {
 
 
 def _normalize_suffix(number: str, suffix: str) -> Optional[str]:
+    """Return the normalized suffix for a given ordinal number.
+
+    Args:
+        number: Numeric portion captured from the input text.
+        suffix: Raw suffix captured from the input text.
+
+    Returns:
+        The normalized suffix to use inside the caret markers, or ``None`` when
+        the suffix should stay untouched.
+
+    Examples:
+        >>> from mkdocs_french.rules.ordinaux import _normalize_suffix
+        >>> _normalize_suffix("1", "ère")
+        're'
+        >>> _normalize_suffix("2", "ieme")
+        'e'
+        >>> _normalize_suffix("3", "er") is None
+        True
+    """
     normalized = suffix.lower()
     for original, replacement in sorted(
         REPLACEMENTS.items(), key=lambda item: -len(item[0])
@@ -95,38 +116,56 @@ def _normalize_suffix(number: str, suffix: str) -> Optional[str]:
     return GENERAL_SUFFIX_MAP.get(normalized)
 
 
-def det_ordinaux(text: str) -> list[RuleResult]:
-    results: list[RuleResult] = []
-    for match in ORDINAL_PATTERN.finditer(text):
-        number = match.group(1)
-        suffix = match.group(2)
-        normalized = _normalize_suffix(number, suffix)
-        if not normalized:
-            continue
-        replacement = f"{number}^{normalized}^"
-        results.append(
-            (
-                match.start(),
-                match.end(),
-                f"Ordinal «{match.group(0)}» → «{replacement}»",
-                replacement,
+class OrdinauxRule(Rule):
+    """Convert textual ordinal suffixes into Markdown caret notation."""
+
+    def __init__(self) -> None:
+        """Register the rule in the orchestrator."""
+        super().__init__(name="ordinaux", config_attr="ordinaux")
+
+    def detect(self, text: str) -> list[RuleResult]:
+        """Return warnings for ordinals written without caret markers.
+
+        Args:
+            text: Text fragment to inspect.
+
+        Returns:
+            A list of rule results containing the normalized replacement in the
+            preview field.
+        """
+        results: list[RuleResult] = []
+        for match in ORDINAL_PATTERN.finditer(text):
+            number = match.group(1)
+            suffix = match.group(2)
+            normalized = _normalize_suffix(number, suffix)
+            if not normalized:
+                continue
+            replacement = f"{number}^{normalized}^"
+            results.append(
+                (
+                    match.start(),
+                    match.end(),
+                    f"Ordinal «{match.group(0)}» → «{replacement}»",
+                    replacement,
+                )
             )
-        )
-    return results
+        return results
 
+    def fix(self, text: str) -> str:
+        """Apply caret-based notation (``1^er^``) directly in the text.
 
-def fix_ordinaux(text: str) -> str:
-    def repl(match: re.Match) -> str:
-        number = match.group(1)
-        suffix = match.group(2)
-        normalized = _normalize_suffix(number, suffix)
-        if not normalized:
-            return match.group(0)
-        return f"{number}^{normalized}^"
+        Args:
+            text: Text fragment to mutate.
 
-    return ORDINAL_PATTERN.sub(repl, text)
+        Returns:
+            The updated text where detected ordinals use normalized suffixes.
+        """
+        def repl(match: re.Match) -> str:
+            number = match.group(1)
+            suffix = match.group(2)
+            normalized = _normalize_suffix(number, suffix)
+            if not normalized:
+                return match.group(0)
+            return f"{number}^{normalized}^"
 
-
-RULE = RuleDefinition(
-    name="ordinaux", config_attr="ordinaux", detector=det_ordinaux, fixer=fix_ordinaux
-)
+        return ORDINAL_PATTERN.sub(repl, text)

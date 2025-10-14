@@ -1,3 +1,5 @@
+"""MkDocs plugin implementation enforcing French typography conventions."""
+
 # mkdocs_fr_typo/plugin.py
 from __future__ import annotations
 
@@ -21,7 +23,7 @@ from .constants import (
     SKIP_PARENTS,
     SKIP_TAGS,
 )
-from .rules import ALL_RULES, RuleDefinition
+from .rules import Rule, RuleOrchestrator, RuleWarning, build_rules
 
 
 try:  # rich is optional to keep compatibility without the dependency installed
@@ -46,12 +48,16 @@ RE_ADMONITION = re.compile(
 
 
 class Level(str, Enum):
+    """Severity levels controlling how rules behave."""
+
     ignore = "ignore"
     warn = "warn"
     fix = "fix"
 
 
 class FrenchPluginConfig(Config):
+    """Configuration schema for the French typography plugin."""
+
     # rule levels
     abbreviation = c.Choice((Level.ignore, Level.warn, Level.fix), default=Level.fix)
     ordinaux = c.Choice((Level.ignore, Level.warn, Level.fix), default=Level.fix)
@@ -79,14 +85,27 @@ class FrenchPluginConfig(Config):
 
 
 class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
+    """MkDocs plugin that fixes French typography and highlights issues."""
+
     def __init__(self):
+        """Initialize runtime state and build the rule orchestrator."""
         super().__init__()
         self._collected_warnings: List[dict] = []
         self._extra_css: Set[Path] = set()
         self._admonition_translations: dict = {}
         self._site_dir: Optional[Path] = None
+        self._orchestrator = RuleOrchestrator(build_rules())
 
     def on_config(self, config, **kwargs):
+        """Enrich the MkDocs configuration with plugin-specific assets.
+
+        Args:
+            config: MkDocs configuration object or dict.
+            **kwargs: Extra keyword arguments provided by MkDocs (unused).
+
+        Returns:
+            The possibly mutated configuration object.
+        """
         translations = DEFAULT_ADMONITION_TRANSLATIONS.copy()
         for key, value in self.config.admonition_translations.items():
             if value is not None:
@@ -117,39 +136,66 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
 
         return config
 
-    def _apply_rule(
+    def _level_for_rule(self, rule: Rule):
+        """Return the configured severity level for the given rule.
+
+        Args:
+            rule: Rule instance whose level should be retrieved.
+
+        Returns:
+            Configured level (enum or string) for the rule.
+        """
+        return getattr(self.config, rule.config_attr)
+
+    def _emit_warnings(
         self,
-        rule: RuleDefinition,
-        level: Level,
-        text: str,
+        warnings: List[RuleWarning],
         src_path: str,
         cur_line: Optional[int],
-    ) -> str:
-        if level == Level.ignore:
-            return text
-        if level == Level.warn:
-            for _s, _e, msg, prev in rule.detector(text):
-                line_info = f"{src_path}:{cur_line}" if cur_line else src_path
-                prev_txt = f" → «{prev}»" if prev else ""
-                log.warning(
-                    "[fr-typo:%s] %s: %s%s", rule.name, line_info, msg, prev_txt
+    ) -> None:
+        """Log warnings and optionally store them for later summary output.
+
+        Args:
+            warnings: Collection of warnings to emit.
+            src_path: Source path associated with the processed content.
+            cur_line: Optional line number providing additional context.
+        """
+        if not warnings:
+            return
+        line_info = f"{src_path}:{cur_line}" if cur_line else src_path
+
+        for warning in warnings:
+            prev_txt = f" → «{warning.preview}»" if warning.preview else ""
+            log.warning(
+                "[fr-typo:%s] %s: %s%s",
+                warning.rule.name,
+                line_info,
+                warning.message,
+                prev_txt,
+            )
+            if self.config.summary:
+                self._collected_warnings.append(
+                    {
+                        "rule": warning.rule.name,
+                        "file": src_path,
+                        "line": cur_line,
+                        "message": warning.message,
+                        "preview": warning.preview,
+                    }
                 )
-                if self.config.summary:
-                    self._collected_warnings.append(
-                        {
-                            "rule": rule.name,
-                            "file": src_path,
-                            "line": cur_line,
-                            "message": msg,
-                            "preview": prev,
-                        }
-                    )
-            return text
-        # fix
-        return rule.fixer(text)
 
     def on_page_content(self, html, page, config, files):
-        """Process the generated HTML of a page."""
+        """Process the generated HTML of a page.
+
+        Args:
+            html: Rendered HTML string produced by MkDocs.
+            page: MkDocs page instance currently being processed.
+            config: MkDocs configuration object.
+            files: MkDocs files collection (unused).
+
+        Returns:
+            Updated HTML string with typography fixes applied.
+        """
         soup = BeautifulSoup(html, "html.parser")
 
         # 1) Collect FRL marker comments
@@ -238,9 +284,11 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
                     page.file.abs_src_path if page and page.file else "<page>",
                 )
 
-                for rule in ALL_RULES:
-                    level = getattr(cfg, rule.config_attr)
-                    s = self._apply_rule(rule, level, s, src_path, None)
+                s, warnings = self._orchestrator.process(
+                    s,
+                    self._level_for_rule,
+                )
+                self._emit_warnings(warnings, src_path, None)
 
                 handled_foreign = False
                 if cfg.foreign != Level.ignore and parent:
@@ -270,6 +318,17 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         return str(soup)
 
     def on_page_markdown(self, markdown, page, config, files):
+        """Decorate admonitions in markdown before rendering.
+
+        Args:
+            markdown: Markdown source string about to be rendered.
+            page: MkDocs page instance (unused).
+            config: MkDocs configuration (unused).
+            files: MkDocs files collection (unused).
+
+        Returns:
+            The potentially modified markdown content.
+        """
         if self.config.admonitions != Level.fix:
             return markdown
 
@@ -305,6 +364,12 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         return "".join(lines)
 
     def on_post_build(self, config: MkDocsConfig | dict, **_: object) -> None:
+        """Copy injected CSS files and optionally print a summary after build.
+
+        Args:
+            config: MkDocs configuration object or dict.
+            **_: Additional unused keyword arguments provided by MkDocs.
+        """
         site_dir = (
             Path(config["site_dir"])
             if isinstance(config, dict)
@@ -330,6 +395,21 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         src_path: str,
         italic_context: bool,
     ) -> tuple[bool, str]:
+        """Italicize foreign locutions or emit warnings depending on the level.
+
+        Args:
+            text: Raw text node content being processed.
+            level: Severity level for the foreign locution rule.
+            soup: BeautifulSoup document used to create new nodes.
+            node: Current text node in the DOM tree.
+            parent: Parent element of the current text node.
+            src_path: Source path of the page for logging purposes.
+            italic_context: Whether the text already resides in an italic context.
+
+        Returns:
+            Tuple containing a flag indicating whether the node was replaced and
+            the possibly modified text.
+        """
         if not FOREIGN_LOCUTIONS:
             return False, text
 
@@ -386,6 +466,12 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         return True, text
 
     def _log_foreign_warning(self, phrase: str, src_path: str) -> None:
+        """Record a warning for a non-italicized foreign locution.
+
+        Args:
+            phrase: Foreign expression detected in the source.
+            src_path: Page path used when logging the warning.
+        """
         message = f"Locution étrangère non italique : «{phrase}»"
         log.warning("[fr-typo:foreign] %s: %s", src_path, message)
         if self.config.summary:
@@ -400,6 +486,7 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
             )
 
     def _print_summary(self):
+        """Display a formatted summary of collected warnings."""
         if Table is None or Console is None or box is None:
             self._print_plain_summary()
             return
@@ -432,6 +519,7 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         console.print(table)
 
     def _print_plain_summary(self):
+        """Fallback plain-text summary when ``rich`` is unavailable."""
         # Plain-text fallback when rich is unavailable
         header = "Résumé des avertissements typographiques"
         print("\n" + header)

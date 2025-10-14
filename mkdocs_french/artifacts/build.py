@@ -1,3 +1,5 @@
+"""Utilities to build and serialize the bundled Morphalou artifact."""
+
 from __future__ import annotations
 
 import argparse
@@ -15,17 +17,18 @@ from . import SCHEMA_VERSION, default_data_path
 def build_morphalou_artifact(
     output_path: Path | None = None, *, force: bool = False, quiet: bool = False
 ) -> Path:
-    """
-    Build the compressed Morphalou artifact ready to be versioned.
+    """Build the compressed Morphalou artifact ready to be versioned.
 
-    Parameters
-    ----------
-    output_path:
-        Target path. Defaults to ``artifacts/morphalou_data.json.gz``.
-    force:
-        Overwrite the file if it already exists.
-    quiet:
-        Reduce messages printed to stderr.
+    Args:
+        output_path: Target path. Defaults to ``artifacts/morphalou_data.json.gz``.
+        force: Whether to overwrite existing files.
+        quiet: Reduce messages printed to stderr.
+
+    Returns:
+        Path to the generated artifact.
+
+    Raises:
+        FileExistsError: If the target exists and ``force`` is ``False``.
     """
     target = output_path or default_data_path()
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -54,7 +57,14 @@ def build_morphalou_artifact(
 
 
 def _serialize_dictionary(dictionary: Dictionary) -> dict:
-    """Convert a ``Dictionary`` into a JSON-serializable structure."""
+    """Convert a :class:`Dictionary` into a JSON-serializable mapping.
+
+    Args:
+        dictionary: Source dictionary whose indexes have been prepared.
+
+    Returns:
+        Mapping ready to be dumped as JSON.
+    """
     words = sorted(dictionary.words)
     ligature_map = dictionary._ligature_map.copy()
     accent_map = {k: list(v) for k, v in dictionary._accent_map.items()}
@@ -76,6 +86,12 @@ def _serialize_dictionary(dictionary: Dictionary) -> dict:
 
 
 def _write_gz_json(path: Path, payload: Mapping[str, object]) -> None:
+    """Write the given payload as UTF-8 JSON compressed with gzip.
+
+    Args:
+        path: Destination file path.
+        payload: JSON-serializable mapping to serialize.
+    """
     data = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode(
         "utf-8"
     )
@@ -84,7 +100,14 @@ def _write_gz_json(path: Path, payload: Mapping[str, object]) -> None:
 
 
 def main(argv: Iterable[str] | None = None) -> int:
-    """Command-line interface for building the Morphalou artifact."""
+    """Command-line interface for building the Morphalou artifact.
+
+    Args:
+        argv: Optional sequence overriding ``sys.argv``.
+
+    Returns:
+        Process exit code (zero on success).
+    """
     parser = argparse.ArgumentParser(
         prog="mkdocs-french build",
         description="Generate the Morphalou artifact for mkdocs-plugin-french.",

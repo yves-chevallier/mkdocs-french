@@ -1,3 +1,5 @@
+"""Console entry point for ``python -m mkdocs_french``."""
+
 from __future__ import annotations
 
 from .cli import main

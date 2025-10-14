@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from mkdocs_french.rules import ligatures
+from mkdocs_french.rules import ligatures as ligatures_module
+from mkdocs_french.rules.ligatures import LigaturesRule
+
+
+rule = LigaturesRule()
 
 
 class DummyDictionary:
@@ -9,12 +13,12 @@ class DummyDictionary:
 
 
 def test_ligatures_detector_reports_missing(monkeypatch):
-    monkeypatch.setattr(ligatures, "get_dictionary", lambda: DummyDictionary())
-    results = ligatures.det_ligatures("Une oeuvre importante")
+    monkeypatch.setattr(ligatures_module, "get_dictionary", lambda: DummyDictionary())
+    results = rule.detect("Une oeuvre importante")
     assert results[0][2] == "Ligature : «oeuvre» → «œuvre»"
 
 
 def test_ligatures_fix_replaces(monkeypatch):
-    monkeypatch.setattr(ligatures, "get_dictionary", lambda: DummyDictionary())
-    fixed = ligatures.fix_ligatures("Oeuvre et oeuvre")
+    monkeypatch.setattr(ligatures_module, "get_dictionary", lambda: DummyDictionary())
+    fixed = rule.fix("Oeuvre et oeuvre")
     assert fixed == "Œuvre et œuvre"

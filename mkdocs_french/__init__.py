@@ -14,12 +14,16 @@ __all__ = ["FrenchPlugin", "Level", "main"]
 
 
 def __getattr__(name: str) -> Any:
-    """
-    Lazily import heavy dependencies.
+    """Lazily import heavy dependencies when accessed as module attributes.
 
-    ``mkdocs_french.plugin`` pulls in BeautifulSoup during import.  Deferring the
-    import prevents Poetry build hooks from failing before runtime dependencies
-    are installed.
+    Args:
+        name: Attribute requested via ``getattr``.
+
+    Returns:
+        The requested attribute from :mod:`mkdocs_french.plugin`.
+
+    Raises:
+        AttributeError: If the attribute does not correspond to a public export.
     """
     if name in {"FrenchPlugin", "Level"}:
         from .plugin import FrenchPlugin, Level

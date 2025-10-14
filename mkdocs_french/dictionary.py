@@ -1,3 +1,5 @@
+"""Morphalou-backed dictionary helpers for ligatures and diacritics."""
+
 from __future__ import annotations
 
 from functools import lru_cache
@@ -76,21 +78,38 @@ FALLBACK_WORDS: Set[str] = {
 
 @lru_cache(maxsize=131072)
 def _strip_diacritics_cached(s: str) -> str:
-    """Cached version of diacritic stripping."""
+    """Strip diacritics from a string while caching results.
+
+    Args:
+        s: Input string whose diacritics should be removed.
+
+    Returns:
+        The normalized string free of combining marks.
+
+    Examples:
+        >>> from mkdocs_french.dictionary import _strip_diacritics_cached
+        >>> _strip_diacritics_cached("Élévation")
+        'Elevation'
+    """
     normalized = unicodedata.normalize("NFD", s)
     stripped = "".join(ch for ch in normalized if not unicodedata.combining(ch))
     return unicodedata.normalize("NFC", stripped)
 
 
 class Dictionary:
-    """
-    Lightweight access to Morphalou with ligature and diacritic helpers.
+    """Provide ligature and diacritic helpers backed by Morphalou data.
 
-    Typical usage:
-        dictionary = Dictionary()
-        dictionary.prepare()  # optional, triggered automatically on first use
-        dictionary.ligaturize("Oedipe")  # -> "Œdipe"
-        dictionary.accentize("evaluation")  # -> "évaluation"
+    The dictionary downloads, extracts, and parses Morphalou lexicon data (or
+    reuses a pre-generated artifact) to offer helpers that fix common French
+    typography issues. Heavy preparation work is performed lazily at first use.
+
+    Examples:
+        >>> from mkdocs_french.dictionary import Dictionary
+        >>> d = Dictionary(use_static_data=True)
+        >>> d.ligaturize("Oedipe")  # doctest: +ELLIPSIS
+        'Œdipe'
+        >>> d.accentize("NOEL")  # doctest: +ELLIPSIS
+        'NOËL'
     """
 
     def __init__(
@@ -101,6 +120,17 @@ class Dictionary:
         use_static_data: bool = True,
         data_path: Optional[Path] = None,
     ) -> None:
+        """Initialize the dictionary helpers.
+
+        Args:
+            workdir: Optional working directory used for downloads and caching.
+                When omitted, a temporary directory is created automatically.
+            session: Optional ``requests.Session`` to reuse HTTP connections.
+            timeout: Timeout in seconds for Morphalou HTTP requests.
+            use_static_data: Whether to load the bundled pre-processed artifact
+                when available.
+            data_path: Optional path pointing to the static artifact to load.
+        """
         self.workdir = (
             Path(workdir) if workdir else Path(tempfile.mkdtemp(prefix="morphalou_"))
         )
@@ -126,7 +156,11 @@ class Dictionary:
     # ------------------ Preparation lifecycle ------------------
 
     def prepare(self) -> None:  # pragma: no cover - network dependent
-        """Run the full pipeline: download, extract, parse, build indexes."""
+        """Run the full Morphalou pipeline and build lookup indexes.
+
+        The method tolerates network and parsing failures by logging the
+        exception and falling back to the bundled minimal dataset.
+        """
         self._prepare_attempted = True
         try:
             self._download_latest_zip()
@@ -144,7 +178,11 @@ class Dictionary:
         self._prepared = True
 
     def _download_latest_zip(self) -> Path:  # pragma: no cover - network dependent
-        """Fetch the 'latest/' listing, pick the best TEI ZIP and download it."""
+        """Download the most relevant TEI ZIP archive from ORTOLANG.
+
+        Returns:
+            Path to the downloaded ZIP file stored inside the working directory.
+        """
         self.workdir.mkdir(parents=True, exist_ok=True)
         resp = self.session.get(LISTING_URL, timeout=self.timeout)
         resp.raise_for_status()
@@ -179,7 +217,14 @@ class Dictionary:
         return out_path
 
     def _extract_zip(self) -> Path:  # pragma: no cover - network dependent
-        """Extract the TEI archive into a subdirectory."""
+        """Extract the TEI archive into a dedicated folder.
+
+        Returns:
+            Path to the directory containing the extracted XML files.
+
+        Raises:
+            RuntimeError: If called before a ZIP archive has been downloaded.
+        """
         if not self.zip_path:
             raise RuntimeError("Aucun ZIP à extraire. Appelez d'abord prepare().")
         extract_dir = self.workdir / "tei_extracted"
@@ -190,7 +235,11 @@ class Dictionary:
         return extract_dir
 
     def _parse_all_xml(self) -> None:  # pragma: no cover - heavy parsing
-        """Collect Morphalou spellings and populate self.words."""
+        """Parse every extracted XML file to populate the word list.
+
+        This step extracts various orthography fields and adds them to
+        :attr:`words`. Parsing errors are ignored to ensure resilience.
+        """
         if not self.extract_dir:
             raise RuntimeError("Aucun dossier extrait. Appelez prepare() d'abord.")
 
@@ -233,7 +282,15 @@ class Dictionary:
     # ------------------ Public API ------------------
 
     def ligaturize(self, word: str) -> str:
-        """Fix ligatures (oe/ae) while preserving the original casing."""
+        """Replace ``oe``/``ae`` digraphs by ligatures when possible.
+
+        Args:
+            word: Word to transform.
+
+        Returns:
+            The ligaturized word when a single candidate exists, otherwise the
+            original input.
+        """
         if not word:
             return word
         self._ensure_ready()
@@ -244,9 +301,14 @@ class Dictionary:
         return self._apply_casing(word, candidate)
 
     def accentize(self, word: str) -> str:
-        """
-        Fix diacritics when a single Morphalou variant matches.
-        If multiple candidates fit, return the original word.
+        """Add missing diacritics when Morphalou provides an unambiguous match.
+
+        Args:
+            word: Word to transform.
+
+        Returns:
+            The accentized word when exactly one compatible candidate exists;
+            otherwise the original word.
         """
         if not word:
             return word
@@ -273,7 +335,14 @@ class Dictionary:
         return self._apply_casing(word, filtered[0])
 
     def contains(self, fragment: str) -> Tuple[str, ...]:
-        """Return words containing the fragment (diagnostic helper)."""
+        """Return words containing the provided fragment (diagnostic helper).
+
+        Args:
+            fragment: Substring to search for within the dictionary.
+
+        Returns:
+            Sorted tuple of matching words.
+        """
         if not fragment:
             return ()
         self._ensure_ready()
@@ -289,7 +358,11 @@ class Dictionary:
     # ------------------ Index construction ------------------
 
     def _build_indexes(self) -> None:
-        """Populate the internal indexes for ligature and accent handling."""
+        """Populate internal indexes for ligature and accent handling.
+
+        The method reads :attr:`words`, computes lookup maps, and stores the
+        results in :attr:`_ligature_map` and :attr:`_accent_map`.
+        """
         ligature_candidates: Dict[str, Set[str]] = {}
         accent_variants: Dict[str, Set[str]] = {}
         accent_ascii_present: Set[str] = set()
@@ -327,7 +400,12 @@ class Dictionary:
     # ------------------ Helpers ------------------
 
     def _load_static_data(self) -> bool:
-        """Attempt to load the pre-generated indexes from disk."""
+        """Attempt to load the pre-generated indexes from disk.
+
+        Returns:
+            ``True`` when the static artifact was loaded successfully, ``False``
+            otherwise.
+        """
         log.info("Loading static dictionary data from '%s' ...", self._data_path)
         path = self._data_path
         if not path.exists():
@@ -431,6 +509,7 @@ class Dictionary:
         return True
 
     def _ensure_ready(self) -> None:
+        """Trigger preparation lazily when the indexes are not ready."""
         if self._prepared:
             return
         if not self._prepare_attempted:
@@ -443,14 +522,28 @@ class Dictionary:
 
     @staticmethod
     def _strip_ns(tag: str) -> str:
-        """Strip an optional '{...}' namespace prefix from tag names."""
+        """Strip an optional ``{namespace}`` prefix from XML tag names.
+
+        Args:
+            tag: Tag name possibly prefixed with a namespace.
+
+        Returns:
+            The tag name without the namespace portion.
+        """
         if "}" in tag:
             return tag.split("}", 1)[1]
         return tag
 
     @staticmethod
     def _is_potential_word(text: str) -> bool:
-        """Loose filter to skip strings that are clearly non-lexical."""
+        """Return whether a string looks like a valid lexical entry.
+
+        Args:
+            text: Raw text candidate to evaluate.
+
+        Returns:
+            ``True`` if the string could represent a word, ``False`` otherwise.
+        """
         stripped = text.strip()
         if not stripped:
             return False
@@ -462,7 +555,14 @@ class Dictionary:
 
     @staticmethod
     def normaliser_ascii(text: str) -> str:
-        """Replace ligatures with ASCII digraphs (useful for keys)."""
+        """Replace ligatures with ASCII digraphs (useful for keys).
+
+        Args:
+            text: Input string possibly containing ligatures.
+
+        Returns:
+            The string where ``œ``/``æ`` are replaced with ``oe``/``ae``.
+        """
         return (
             text.replace("Œ", "OE")
             .replace("œ", "oe")
@@ -472,12 +572,20 @@ class Dictionary:
 
     @staticmethod
     def _contient_ligature(text: str) -> bool:
-        """Check whether the string contains œ/æ ligatures."""
+        """Return whether the string contains œ/æ ligatures."""
         return any(char in text for char in ("œ", "Œ", "æ", "Æ"))
 
     @staticmethod
     def _apply_casing(original: str, suggestion_lower: str) -> str:
-        """Adapt the lowercase suggestion casing to match the original string."""
+        """Adapt the lowercase suggestion casing to match the original string.
+
+        Args:
+            original: Original token whose casing should be mimicked.
+            suggestion_lower: Suggested replacement in lowercase.
+
+        Returns:
+            The suggestion adjusted to match the casing of ``original``.
+        """
         if not suggestion_lower:
             return suggestion_lower
         if original.isupper():
@@ -494,7 +602,16 @@ class Dictionary:
     def _is_compatible_with_existing_diacritics(
         original_lower: str, candidate_lower: str
     ) -> bool:
-        """Ensure candidates respect diacritics already present in the source."""
+        """Return whether a candidate respects existing diacritics.
+
+        Args:
+            original_lower: Lowercased source token.
+            candidate_lower: Lowercased candidate token from Morphalou.
+
+        Returns:
+            ``True`` when the candidate matches the already present diacritics,
+            ``False`` otherwise.
+        """
         if len(original_lower) != len(candidate_lower):
             return False
         for orig_char, cand_char in zip(original_lower, candidate_lower):
@@ -510,7 +627,14 @@ class Dictionary:
         return True
 
     def _get_accent_candidates(self, base: str) -> Tuple[str, ...]:
-        """Retrieve accent candidates for a base form, using the internal cache."""
+        """Retrieve accent candidates for a base form using the internal cache.
+
+        Args:
+            base: Normalized base form (without diacritics).
+
+        Returns:
+            Tuple of candidate strings; empty tuple when no candidates exist.
+        """
         cached = self._accent_map.get(base)
         if cached is not None:
             return cached
@@ -534,7 +658,15 @@ class Dictionary:
 
     @staticmethod
     def _normalize_accent_entry(base: str, variants: Iterable[str]) -> Tuple[str, ...]:
-        """Sort variants (ASCII first) and remove duplicates."""
+        """Sort accent variants (ASCII first) and remove duplicates.
+
+        Args:
+            base: Diacritic-free base form serving as the canonical reference.
+            variants: Iterable of candidate variants including ASCII versions.
+
+        Returns:
+            Tuple of unique variants ordered with ASCII first and then alphabetically.
+        """
         ascii_variants = []
         other_variants = []
         seen = set()
@@ -556,7 +688,11 @@ class Dictionary:
 
 @lru_cache(maxsize=1)
 def get_dictionary() -> "Dictionary":
-    """Return a cached ``Dictionary`` instance."""
+    """Return a cached :class:`Dictionary` instance.
+
+    Returns:
+        Singleton dictionary created on first call.
+    """
 
     return Dictionary()
 

@@ -1,3 +1,5 @@
+"""Command-line entry point for mkdocs-french helper utilities."""
+
 from __future__ import annotations
 
 import argparse
@@ -9,6 +11,14 @@ from .artifacts.build import build_morphalou_artifact
 
 
 def main(argv: Iterable[str] | None = None) -> int:
+    """Execute the command-line interface.
+
+    Args:
+        argv: Optional iterable overriding ``sys.argv``.
+
+    Returns:
+        Exit code (zero on success, non-zero on error or misuse).
+    """
     parser = argparse.ArgumentParser(
         prog="mkdocs-french", description="Auxiliary tooling for mkdocs-plugin-french."
     )
@@ -28,6 +38,11 @@ def main(argv: Iterable[str] | None = None) -> int:
 def _configure_build_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    """Register the ``build`` sub-command on the provided subparsers object.
+
+    Args:
+        subparsers: Sub-parser factory returned by ``ArgumentParser.add_subparsers``.
+    """
     build_parser = subparsers.add_parser(
         "build", help="Generate the compressed Morphalou artifacts."
     )
@@ -48,6 +63,14 @@ def _configure_build_parser(
 
 
 def _run_build(args: argparse.Namespace) -> int:
+    """Run the ``build`` sub-command and return an exit code.
+
+    Args:
+        args: Parsed arguments produced by the CLI.
+
+    Returns:
+        Exit code signaling success or failure.
+    """
     try:
         target = build_morphalou_artifact(
             args.output, force=args.force, quiet=args.quiet

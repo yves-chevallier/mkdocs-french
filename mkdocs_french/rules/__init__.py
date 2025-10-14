@@ -1,23 +1,43 @@
-from .abbreviation import RULE as ABBREVIATION_RULE
-from .base import RuleDefinition, RuleResult  # noqa: F401
-from .casse import RULE as CASSE_RULE
-from .diacritics import RULE as DIACRITICS_RULE
-from .ligatures import RULE as LIGATURES_RULE
-from .ordinaux import RULE as ORDINAUX_RULE
-from .quotes import RULE as QUOTES_RULE
-from .spacing import RULE as SPACING_RULE
-from .units import RULE as UNITS_RULE
+"""Convenience imports and factories for the built-in French typography rules."""
+
+from .abbreviation import AbbreviationRule
+from .base import Rule, RuleResult
+from .casse import CasseRule
+from .diacritics import DiacriticsRule
+from .ligatures import LigaturesRule
+from .ordinaux import OrdinauxRule
+from .orchestrator import RuleOrchestrator, RuleWarning
+from .quotes import QuotesRule
+from .spacing import SpacingRule
+from .units import UnitsRule
 
 
-ALL_RULES = [
-    ABBREVIATION_RULE,
-    ORDINAUX_RULE,
-    LIGATURES_RULE,
-    CASSE_RULE,
-    SPACING_RULE,
-    QUOTES_RULE,
-    UNITS_RULE,
-    DIACRITICS_RULE,
+def build_rules() -> tuple[Rule, ...]:
+    """Return a freshly instantiated tuple of all default rules.
+
+    Returns:
+        Tuple containing new instances of each available rule, ordered to match
+        the desired processing chain.
+    """
+    return (
+        AbbreviationRule(),
+        OrdinauxRule(),
+        LigaturesRule(),
+        CasseRule(),
+        SpacingRule(),
+        QuotesRule(),
+        UnitsRule(),
+        DiacriticsRule(),
+    )
+
+
+ALL_RULES = build_rules()
+
+__all__ = [
+    "Rule",
+    "RuleResult",
+    "RuleWarning",
+    "RuleOrchestrator",
+    "ALL_RULES",
+    "build_rules",
 ]
-
-__all__ = ["RuleDefinition", "RuleResult", "ALL_RULES"]
