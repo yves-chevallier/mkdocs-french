@@ -17,6 +17,18 @@ Les règles traitées sont :
 - Casse et typographie courante (jours, mois, gentilés en minuscule)
 - Traduction des admonitions standard (warning → Avertissement, etc.)
 
+## Documentation API et génération
+
+Les sections **Référence → Package mkdocs_french** et **Référence → Dictionnaire** sont alimentées automatiquement par [mkdocstrings](https://mkdocstrings.github.io/). Toute modification dans les sources Python sera reflétée à la prochaine compilation de la documentation.
+
+Pour prévisualiser la documentation et regénérer l'API :
+
+1. Installer les dépendances : `poetry install`
+2. Lancer un serveur local : `poetry run mkdocs serve -f docs/mkdocs.yml`
+3. Construire la documentation pour mise en ligne : `poetry run mkdocs build -f docs/mkdocs.yml`
+
+La page de référence peut aussi servir de modèle pour documenter d'autres modules ; il suffit de créer un fichier dans `docs/docs/reference/` et d'ajouter une directive `::: module.ou.objet` correspondante.
+
 ## Espacement et ponctuation
 
 En français, les ponctuations doubles sont précédées d'une espace insécable U+202F. Markdown ne le gère pas nativement. Si l'éditeur ajoute manuellement une espace comme dans `ceci :`, le risque est que le rendu HTML puisse ajouter une césure de ligne entre le mot et la ponctuation. Inversément, si l'éditeur n'ajoute pas d'espace, le rendu n'est pas correct. Il n'y a donc pas de solution à l'édition à moins de veiller à ajouter une espace insécable manuellement.

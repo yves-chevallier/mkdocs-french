@@ -155,15 +155,15 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
 
         # 2) Mark nodes contained inside ignore blocks
         #    Iterate over comment pairs, gather the nodes between them, then mark descendants.
-        nodes_to_skip = set()
+        nodes_to_skip_ids = set()  # use object ids to sidestep Tag.__hash__ hot path
 
         def _mark_ignore(node):
             if node is None:
                 return
-            nodes_to_skip.add(node)
+            nodes_to_skip_ids.add(id(node))
             if hasattr(node, "descendants"):
                 for desc in node.descendants:
-                    nodes_to_skip.add(desc)
+                    nodes_to_skip_ids.add(id(desc))
 
         # Map each comment to its position in document order
         pos_map = {c: i for i, c in enumerate(comments)}
@@ -212,7 +212,9 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
 
             if isinstance(node, NavigableString):
                 parent = node.parent
-                if node in nodes_to_skip or parent in nodes_to_skip:
+                if id(node) in nodes_to_skip_ids:
+                    continue
+                if parent and id(parent) in nodes_to_skip_ids:
                     continue
                 if (
                     not parent

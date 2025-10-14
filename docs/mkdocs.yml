@@ -41,6 +41,9 @@ theme:
 nav:
   - Introduction: index.md
   - Configuration: config.md
+  - Référence:
+      - Package mkdocs_french: reference/index.md
+      - Dictionnaire: reference/dictionary.md
 extra:
   version:
     provider: mike
