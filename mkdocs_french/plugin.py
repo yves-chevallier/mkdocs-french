@@ -1,21 +1,25 @@
 """MkDocs plugin implementation enforcing French typography conventions."""
 
 # mkdocs_fr_typo/plugin.py
+# pylint: disable=invalid-name
 from __future__ import annotations
 
+from collections.abc import Iterable, MutableMapping
 from enum import Enum
 import logging
 from pathlib import Path
 import re
 import shutil
-from typing import List, Optional, Set
+from typing import Any, cast
 
 from bs4 import BeautifulSoup, Comment
-from bs4.element import NavigableString
+from bs4.element import NavigableString, PageElement, Tag
 from mkdocs.config import config_options as c
 from mkdocs.config.base import Config
 from mkdocs.config.defaults import MkDocsConfig
 from mkdocs.plugins import BasePlugin
+from mkdocs.structure.files import Files
+from mkdocs.structure.pages import Page
 
 from .constants import (
     DEFAULT_ADMONITION_TRANSLATIONS,
@@ -24,6 +28,10 @@ from .constants import (
     SKIP_TAGS,
 )
 from .rules import Rule, RuleOrchestrator, RuleWarning, build_rules
+
+
+ConfigTranslationMap = MutableMapping[str, str | None]
+WarningEntry = dict[str, Any]
 
 
 try:  # rich is optional to keep compatibility without the dependency installed
@@ -47,7 +55,7 @@ RE_ADMONITION = re.compile(
 # ---------- Class-based config ----------
 
 
-class Level(str, Enum):
+class Level(str, Enum):  # pylint: disable=invalid-name
     """Severity levels controlling how rules behave."""
 
     ignore = "ignore"
@@ -74,7 +82,7 @@ class FrenchPluginConfig(Config):
     enable_css_bullets = c.Type(bool, default=True)  # inject CSS for dash bullets
     css_scope_selector = c.Type(str, default="body")  # kept for compatibility
     admonitions = c.Choice((Level.ignore, Level.fix), default=Level.fix)
-    admonition_translations = c.Type(dict, default={})
+    admonition_translations = c.Type(dict[str, str | None], default={})
     summary = c.Type(bool, default=False)
 
     # enable line markers when warn is active (auto if any rule == warn)
@@ -90,24 +98,28 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
     def __init__(self):
         """Initialize runtime state and build the rule orchestrator."""
         super().__init__()
-        self._collected_warnings: List[dict] = []
-        self._extra_css: Set[Path] = set()
-        self._admonition_translations: dict = {}
-        self._site_dir: Optional[Path] = None
+        self._collected_warnings: list[WarningEntry] = []
+        self._extra_css: set[Path] = set()
+        self._admonition_translations: dict[str, str] = {}
+        self._site_dir: Path | None = None
         self._orchestrator = RuleOrchestrator(build_rules())
+        self._foreign_pattern: re.Pattern[str] | None = None
 
-    def on_config(self, config, **kwargs):
+    def on_config(self, config: MkDocsConfig) -> MkDocsConfig | None:
         """Enrich the MkDocs configuration with plugin-specific assets.
 
         Args:
-            config: MkDocs configuration object or dict.
-            **kwargs: Extra keyword arguments provided by MkDocs (unused).
+            config: MkDocs configuration object.
 
         Returns:
             The possibly mutated configuration object.
         """
-        translations = DEFAULT_ADMONITION_TRANSLATIONS.copy()
-        for key, value in self.config.admonition_translations.items():
+        translations: dict[str, str] = DEFAULT_ADMONITION_TRANSLATIONS.copy()
+        config_translations = cast(
+            ConfigTranslationMap, self.config.admonition_translations
+        )
+        custom_translations: dict[str, str | None] = dict(config_translations.items())
+        for key, value in custom_translations.items():
             if value is not None:
                 translations[key.lower()] = value
         self._admonition_translations = translations
@@ -118,15 +130,19 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         if self.config.justify:
             self._extra_css.add(package_dir / "css" / "french-justify.css")
 
-        if isinstance(config, dict):
-            site_dir = Path(config.get("site_dir", "site"))
-            extra_css = config.setdefault("extra_css", [])
+        config_mapping = cast(MutableMapping[str, Any], config)
+        site_dir_attr = config.site_dir if hasattr(config, "site_dir") else None
+        if isinstance(site_dir_attr, str):
+            site_dir_value = site_dir_attr
         else:
-            site_dir_value = getattr(config, "site_dir", None)
-            if site_dir_value is None:
-                site_dir_value = config["site_dir"]
-            site_dir = Path(site_dir_value)
-            extra_css = config["extra_css"]
+            site_dir_raw = config_mapping.get("site_dir", "site")
+            site_dir_value = str(site_dir_raw)
+        site_dir = Path(site_dir_value)
+        extra_css_source: Iterable[str] = config_mapping.get("extra_css", [])
+        extra_css: list[str] = []
+        for entry in extra_css_source:
+            extra_css.append(str(entry))
+        config_mapping["extra_css"] = extra_css_source
 
         self._site_dir = site_dir
         for entry in self._extra_css:
@@ -136,7 +152,7 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
 
         return config
 
-    def _level_for_rule(self, rule: Rule):
+    def _level_for_rule(self, rule: Rule) -> Level | str:
         """Return the configured severity level for the given rule.
 
         Args:
@@ -149,9 +165,9 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
 
     def _emit_warnings(
         self,
-        warnings: List[RuleWarning],
+        warnings: list[RuleWarning],
         src_path: str,
-        cur_line: Optional[int],
+        cur_line: int | None,
     ) -> None:
         """Log warnings and optionally store them for later summary output.
 
@@ -174,17 +190,24 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
                 prev_txt,
             )
             if self.config.summary:
-                self._collected_warnings.append(
-                    {
-                        "rule": warning.rule.name,
-                        "file": src_path,
-                        "line": cur_line,
-                        "message": warning.message,
-                        "preview": warning.preview,
-                    }
-                )
+                warning_entry: WarningEntry = {
+                    "rule": warning.rule.name,
+                    "file": src_path,
+                    "line": cur_line,
+                    "message": warning.message,
+                    "preview": warning.preview,
+                }
+                self._collected_warnings.append(warning_entry)
 
-    def on_page_content(self, html, page, config, files):
+    def on_page_content(
+        self,
+        html: str,
+        /,
+        *,
+        page: Page,
+        config: MkDocsConfig,
+        files: Files,
+    ) -> str:
         """Process the generated HTML of a page.
 
         Args:
@@ -196,22 +219,28 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         Returns:
             Updated HTML string with typography fixes applied.
         """
+        del config, files
+        plugin_config: FrenchPluginConfig = self.config
         soup = BeautifulSoup(html, "html.parser")
 
         # 1) Collect FRL marker comments
         comments = list(soup.find_all(string=lambda t: isinstance(t, Comment)))
 
         # 2) Mark nodes contained inside ignore blocks
-        #    Iterate over comment pairs, gather the nodes between them, then mark descendants.
-        nodes_to_skip_ids = set()  # use object ids to sidestep Tag.__hash__ hot path
+        #    Iterate over comment pairs, gather the nodes between them,
+        #    then mark descendants.
+        nodes_to_skip_ids: set[int] = set()  # object ids sidestep Tag.__hash__ hot path
 
-        def _mark_ignore(node):
+        def _mark_ignore(node: PageElement | None) -> None:
             if node is None:
                 return
-            nodes_to_skip_ids.add(id(node))
-            if hasattr(node, "descendants"):
-                for desc in node.descendants:
-                    nodes_to_skip_ids.add(id(desc))
+            nodes_to_skip_ids.add(id(cast(object, node)))
+            descendants = cast(Iterable[PageElement], getattr(node, "descendants", ()))
+            for descendant in descendants:
+                nodes_to_skip_ids.add(id(cast(object, descendant)))
+
+        def _element_name(element: PageElement) -> str | None:
+            return cast(str | None, getattr(element, "name", None))
 
         # Map each comment to its position in document order
         pos_map = {c: i for i, c in enumerate(comments)}
@@ -270,19 +299,33 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
                     or parent.name in SKIP_PARENTS
                 ):
                     continue
-                if any(getattr(p, "name", None) in SKIP_TAGS for p in parent.parents):
+                ancestor_iter = cast(
+                    Iterable[PageElement], getattr(parent, "parents", ())
+                )
+                if any(_element_name(p) in SKIP_TAGS for p in ancestor_iter):
                     continue
 
                 s = str(node)
                 if not s.strip():
                     continue
 
-                cfg = self.config
-                src_path = getattr(
-                    page.file,
-                    "src_path",
-                    page.file.abs_src_path if page and page.file else "<page>",
-                )
+                cfg = plugin_config
+                file_obj = page.file if hasattr(page, "file") else None
+                if file_obj is None:
+                    src_path = "<page>"
+                else:
+                    file_data = cast(Any, file_obj)
+                    raw_src: str | None
+                    if hasattr(file_data, "src_path"):
+                        raw_src = cast(str | None, file_data.src_path)
+                    else:
+                        raw_src = None
+                    if raw_src is None and hasattr(file_data, "abs_src_path"):
+                        raw_src = cast(str | None, file_data.abs_src_path)
+                    if raw_src is None:
+                        src_path = "<page>"
+                    else:
+                        src_path = str(raw_src)
 
                 s, warnings = self._orchestrator.process(
                     s,
@@ -293,11 +336,12 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
                 handled_foreign = False
                 if cfg.foreign != Level.ignore and parent:
                     s_text = s if s != node else str(node)
-                    parents_chain = [parent]
-                    if hasattr(parent, "parents"):
-                        parents_chain.extend(parent.parents)
+                    parents_chain: list[PageElement] = [parent]
+                    parents_chain.extend(
+                        cast(Iterable[PageElement], getattr(parent, "parents", ()))
+                    )
                     italic_context = any(
-                        getattr(p, "name", None) in {"em", "i"} for p in parents_chain
+                        _element_name(p) in {"em", "i"} for p in parents_chain
                     )
                     handled_foreign, s_text = self._apply_foreign(
                         s_text,
@@ -317,7 +361,15 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
 
         return str(soup)
 
-    def on_page_markdown(self, markdown, page, config, files):
+    def on_page_markdown(
+        self,
+        markdown: str,
+        /,
+        *,
+        page: Page,
+        config: MkDocsConfig,
+        files: Files,
+    ) -> str:
         """Decorate admonitions in markdown before rendering.
 
         Args:
@@ -329,6 +381,7 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         Returns:
             The potentially modified markdown content.
         """
+        del page, config, files
         if self.config.admonitions != Level.fix:
             return markdown
 
@@ -363,18 +416,20 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
 
         return "".join(lines)
 
-    def on_post_build(self, config: MkDocsConfig | dict, **_: object) -> None:
+    def on_post_build(self, *, config: MkDocsConfig) -> None:
         """Copy injected CSS files and optionally print a summary after build.
 
         Args:
-            config: MkDocs configuration object or dict.
-            **_: Additional unused keyword arguments provided by MkDocs.
+            config: MkDocs configuration object.
         """
-        site_dir = (
-            Path(config["site_dir"])
-            if isinstance(config, dict)
-            else Path(config.site_dir)
-        )
+        config_mapping = cast(MutableMapping[str, Any], config)
+        site_dir_attr = config.site_dir if hasattr(config, "site_dir") else None
+        if isinstance(site_dir_attr, str):
+            site_dir_value = site_dir_attr
+        else:
+            site_dir_raw = config_mapping.get("site_dir", "site")
+            site_dir_value = str(site_dir_raw)
+        site_dir = Path(site_dir_value)
         css_dir = site_dir / "css"
 
         css_dir.mkdir(parents=True, exist_ok=True)
@@ -391,7 +446,7 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         level: Level,
         soup: BeautifulSoup,
         node: NavigableString,
-        parent,
+        parent: Tag | None,
         src_path: str,
         italic_context: bool,
     ) -> tuple[bool, str]:
@@ -410,10 +465,11 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
             Tuple containing a flag indicating whether the node was replaced and
             the possibly modified text.
         """
+        del parent
         if not FOREIGN_LOCUTIONS:
             return False, text
 
-        pattern = getattr(self, "_foreign_pattern", None)
+        pattern = self._foreign_pattern
         if pattern is None:
             escaped = "|".join(re.escape(loc) for loc in FOREIGN_LOCUTIONS)
             self._foreign_pattern = re.compile(
@@ -431,7 +487,7 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
             return False, text
 
         # Level.fix
-        new_nodes: List = []
+        new_nodes: list[NavigableString | Tag] = []
         last_idx = 0
         for match in matches:
             start, end = match.span()
@@ -530,6 +586,7 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
                 f" | Suggestion: «{entry['preview']}»" if entry["preview"] else ""
             )
             print(
-                f"[{entry['rule']}] {entry['file']} ({line}) -> {entry['message']}{suggestion}"
+                f"[{entry['rule']}] {entry['file']} "
+                f"({line}) -> {entry['message']}{suggestion}"
             )
         print()

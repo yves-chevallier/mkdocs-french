@@ -117,6 +117,7 @@ class UnitsRule(Rule):
             The corrected text where relevant units now use a narrow
             non-breaking space.
         """
+
         def repl(match: re.Match) -> str:
             number = match.group("number")
             unit = match.group("unit")

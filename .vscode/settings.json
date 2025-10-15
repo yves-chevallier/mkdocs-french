@@ -1,0 +1,11 @@
+{
+  "python.analysis.typeCheckingMode": "strict",
+  "python.formatting.provider": "none",
+  "editor.defaultFormatter": "charliermarsh.ruff",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": true
+  },
+  "ruff.lint.enable": true,
+  "ruff.lint.select": ["E", "F", "I", "B", "UP"]
+}

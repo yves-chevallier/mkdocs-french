@@ -17,18 +17,18 @@ def _ensure_src_on_path() -> None:
         sys.path.insert(0, str(project_root))
 
 
-_ensure_src_on_path()
-
-from mkdocs_french.artifacts import default_data_path
-from mkdocs_french.artifacts.build import build_morphalou_artifact
-
-
 def main() -> None:
     """Regenerate the Morphalou artifact in-place.
 
     Raises:
         SystemExit: If the artifact was not produced as expected.
     """
+    _ensure_src_on_path()
+
+    # These imports must happen after sys.path has been patched for Poetry build hooks.
+    from mkdocs_french.artifacts import default_data_path
+    from mkdocs_french.artifacts.build import build_morphalou_artifact
+
     target = default_data_path()
     build_morphalou_artifact(target, force=True, quiet=False)
     if not target.exists():

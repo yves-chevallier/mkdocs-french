@@ -160,6 +160,7 @@ class OrdinauxRule(Rule):
         Returns:
             The updated text where detected ordinals use normalized suffixes.
         """
+
         def repl(match: re.Match) -> str:
             number = match.group(1)
             suffix = match.group(2)

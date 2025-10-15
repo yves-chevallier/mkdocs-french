@@ -5,8 +5,8 @@ from .base import Rule, RuleResult
 from .casse import CasseRule
 from .diacritics import DiacriticsRule
 from .ligatures import LigaturesRule
-from .ordinaux import OrdinauxRule
 from .orchestrator import RuleOrchestrator, RuleWarning
+from .ordinaux import OrdinauxRule
 from .quotes import QuotesRule
 from .spacing import SpacingRule
 from .units import UnitsRule

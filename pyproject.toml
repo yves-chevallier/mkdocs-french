@@ -1,6 +1,58 @@
+[project]
+name = "mkdocs-french"
+dynamic = ["version"]
+description = "Add overlay on french links in MkDocs"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9,<4.0"
+authors = [
+    {name = "Yves Chevallier", email = "yves.chevallier@heig-vd.ch"},
+]
+keywords = ["mkdocs", "python", "wiki", "french"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "mkdocs>=1.6.1,<2.0.0",
+    "pydantic>=2.9.2,<3.0.0",
+    "Unidecode>=1.4.0,<2.0.0",
+    "beautifulsoup4>=4.14.2,<5.0.0",
+    "rich>=13.9.2,<14.0.0",
+    "requests>=2.32.3,<3.0.0",
+]
+
+[project.urls]
+Documentation = "https://github.com/yves-chevallier/mkdocs-french"
+Source = "https://github.com/yves-chevallier/mkdocs-french"
+Tracker = "https://github.com/yves-chevallier/mkdocs-french/issues"
+
+[project.entry-points."mkdocs.plugins"]
+french = "mkdocs_french.plugin:FrenchPlugin"
+
+[dependency-groups]
+dev = [
+    "poetry>=1.8.3,<2.0.0",
+    "toml>=0.10.2,<0.11.0",
+    "ruff>=0.9.1,<0.10.0",
+    "mkdocs-material>=8.2.10,<9.0.0",
+    "ipdb>=0.13.13,<0.14.0",
+    "pytest>=8.3.3,<9.0.0",
+    "pytest-cov>=5.0.0,<6.0.0",
+    "mkdocstrings[python]>=0.30.1,<0.31.0",
+    "wordfreq>=3.1.1,<4.0.0",
+    "mkdocs-pills>=0.1.0,<0.2.0",
+]
+
 [tool.poetry]
 name = "mkdocs-french"
-version = "0.0.0" # This will be replaced by poetry-dynamic-versioning
+version = "0.0.0" # Valeur remplacée automatiquement par poetry-dynamic-versioning
 description = "Add overlay on french links in MkDocs"
 authors = ["Yves Chevallier <yves.chevallier@heig-vd.ch>"]
 license = "MIT"
@@ -72,7 +124,7 @@ filterwarnings = [
 "french" = "mkdocs_french.plugin:FrenchPlugin"
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]   # E/F (pycodestyle/pyflakes) + I (isort)
+select = ["E", "F", "I"]   # E/F (pycodestyle/pyflakes) et I (isort)
 
 [tool.ruff.lint.isort]
 # options utiles

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from functools import lru_cache
 import gzip
 import json
@@ -10,7 +11,6 @@ from pathlib import Path
 import re
 import shutil
 import tempfile
-from typing import Dict, Iterable, Optional, Set, Tuple
 import unicodedata
 import xml.etree.ElementTree as ET
 import zipfile
@@ -26,7 +26,7 @@ log = logging.getLogger("mkdocs.plugins.fr_typo")
 LISTING_URL = "https://repository.ortolang.fr/api/content/morphalou/latest/"
 ZIP_PATTERN = re.compile(r"^Morphalou.*formatTEI(?:_toutEnUn)?\.zip$", re.IGNORECASE)
 
-FALLBACK_WORDS: Set[str] = {
+FALLBACK_WORDS: set[str] = {
     "cœur",
     "cœurs",
     "coeur",
@@ -114,11 +114,11 @@ class Dictionary:
 
     def __init__(
         self,
-        workdir: Optional[Path] = None,
-        session: Optional[requests.Session] = None,
+        workdir: Path | None = None,
+        session: requests.Session | None = None,
         timeout: int = 60,
         use_static_data: bool = True,
-        data_path: Optional[Path] = None,
+        data_path: Path | None = None,
     ) -> None:
         """Initialize the dictionary helpers.
 
@@ -138,12 +138,12 @@ class Dictionary:
         self.timeout = timeout
         self.use_static_data = use_static_data
         self._data_path = Path(data_path) if data_path else default_data_path()
-        self.zip_path: Optional[Path] = None
-        self.extract_dir: Optional[Path] = None
-        self.words: Set[str] = set(FALLBACK_WORDS)
+        self.zip_path: Path | None = None
+        self.extract_dir: Path | None = None
+        self.words: set[str] = set(FALLBACK_WORDS)
         self._clean_after = workdir is None
-        self._ligature_map: Dict[str, str] = {}
-        self._accent_map: Dict[str, Tuple[str, ...]] = {}
+        self._ligature_map: dict[str, str] = {}
+        self._accent_map: dict[str, tuple[str, ...]] = {}
         self._prepared = False
         self._prepare_attempted = False
 
@@ -244,7 +244,7 @@ class Dictionary:
             raise RuntimeError("Aucun dossier extrait. Appelez prepare() d'abord.")
 
         xml_files = list(self.extract_dir.rglob("*.xml"))
-        words: Set[str] = set()
+        words: set[str] = set()
 
         for xml_path in xml_files:
             try:
@@ -334,7 +334,7 @@ class Dictionary:
 
         return self._apply_casing(word, filtered[0])
 
-    def contains(self, fragment: str) -> Tuple[str, ...]:
+    def contains(self, fragment: str) -> tuple[str, ...]:
         """Return words containing the provided fragment (diagnostic helper).
 
         Args:
@@ -363,9 +363,9 @@ class Dictionary:
         The method reads :attr:`words`, computes lookup maps, and stores the
         results in :attr:`_ligature_map` and :attr:`_accent_map`.
         """
-        ligature_candidates: Dict[str, Set[str]] = {}
-        accent_variants: Dict[str, Set[str]] = {}
-        accent_ascii_present: Set[str] = set()
+        ligature_candidates: dict[str, set[str]] = {}
+        accent_variants: dict[str, set[str]] = {}
+        accent_ascii_present: set[str] = set()
 
         for word in self.words:
             lower_word = word.lower()
@@ -386,7 +386,7 @@ class Dictionary:
             key: sorted(values)[0] for key, values in ligature_candidates.items()
         }
 
-        accent_map: Dict[str, Tuple[str, ...]] = {}
+        accent_map: dict[str, tuple[str, ...]] = {}
         for base, variants in accent_variants.items():
             if not variants:
                 continue
@@ -429,7 +429,8 @@ class Dictionary:
             fast_path = payload.get("normalized", False)
         elif version == 1:
             log.info(
-                "Artéfact Morphalou ancien (schema=1) détecté : chargement en mode compatibilité."
+                "Artéfact Morphalou ancien (schema=1) détecté :"
+                " chargement en mode compatibilité."
             )
             fast_path = False
         else:
@@ -487,7 +488,7 @@ class Dictionary:
                 if isinstance(key, str) and isinstance(value, str)
             }
 
-            accent_map = {}
+            accent_map: dict[str, tuple[str, ...]] = {}
             for key, variants in accent_field.items():
                 if not isinstance(key, str) or not isinstance(variants, list):
                     continue
@@ -626,7 +627,7 @@ class Dictionary:
                 return False
         return True
 
-    def _get_accent_candidates(self, base: str) -> Tuple[str, ...]:
+    def _get_accent_candidates(self, base: str) -> tuple[str, ...]:
         """Retrieve accent candidates for a base form using the internal cache.
 
         Args:
@@ -657,7 +658,7 @@ class Dictionary:
             self._accent_map[base] = self._normalize_accent_entry(base, current)
 
     @staticmethod
-    def _normalize_accent_entry(base: str, variants: Iterable[str]) -> Tuple[str, ...]:
+    def _normalize_accent_entry(base: str, variants: Iterable[str]) -> tuple[str, ...]:
         """Sort accent variants (ASCII first) and remove duplicates.
 
         Args:
@@ -687,7 +688,7 @@ class Dictionary:
 
 
 @lru_cache(maxsize=1)
-def get_dictionary() -> "Dictionary":
+def get_dictionary() -> Dictionary:
     """Return a cached :class:`Dictionary` instance.
 
     Returns:
