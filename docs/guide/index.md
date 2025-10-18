@@ -46,19 +46,3 @@ En dehors de ces environnements, il est possible d'ignorer des sections entière
     ```
 
     > `EVEQUE A PAQUES, etc...`{.nohighlight}, EVEQUE A PAQUES, etc...
-
-4. Pour les listes à puces, utiliser une classe CSS personnalisée pour désactiver la correction:
-
-    ```markdown
-    /// html | div[class='no-french']
-    - Premier
-    - Deuxième
-    - Troisième
-    ///
-    ```
-
-    > /// html | div[class='no-french']
-    > - Premier
-    > - Deuxième
-    > - Troisième
-    > ///

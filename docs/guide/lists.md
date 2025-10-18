@@ -18,9 +18,27 @@ Sans mise en forme, la liste serait affichée ainsi:
 
 Cette correction est configurable et peut être désactivée :
 
-
 ```yaml
 plugins:
   - french:
       enable_css_bullets: false
 ```
+
+## Désactiver le style
+
+Il est possible de désactiver temporairement la correction du style des listes avec :
+
+```markdown
+/// html | div[class='no-french']
+- Premier
+- Deuxième
+- Troisième
+///
+```
+
+> /// html | div[class='no-french']
+>
+> - Premier
+> - Deuxième
+> - Troisième
+> ///

@@ -26,4 +26,6 @@ Est corrigée en :
 > EGRENE, O DELEGUE ZELE, L’EPHEMERE MELOPEE OU S’EBATTENT
 > NAIVEMENT LES AMES DESOEUVREES, EBAUBIES D’ETRE EPIEES !
 
-On note la limite de l'algorithme par l'absence de correction pour "délégué zêlé" en raison de l'ambiguité existante sans contexte additionnel. Un modèle de langage serait nécessaire mais la complexité est -- pour le moment -- hors de portée pour ce plugin.
+!!! warning
+
+    On observe la limite de l'algorithme par l'absence de correction pour "délégué zêlé" en raison de l'ambiguité existante sans contexte additionnel. Un modèle de langage serait nécessaire mais la complexité est -- pour le moment -- hors de portée pour ce plugin.

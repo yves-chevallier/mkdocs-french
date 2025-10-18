@@ -51,6 +51,7 @@ markdown_extensions:
   - pymdownx.details
   - pymdownx.superfences
   - pymdownx.critic
+  - pymdownx.inlinehilite
   - pymdownx.caret
   - pymdownx.keys
   - pymdownx.mark

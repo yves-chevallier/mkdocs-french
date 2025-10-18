@@ -2,11 +2,11 @@
 
 ## Ponctuations
 
-En français, les ponctuations doubles sont précédées d'une espace insécable U+202F. Markdown ne le gère pas nativement. Si l'éditeur ajoute manuellement une espace comme dans `ceci :`, le risque est que le rendu HTML puisse ajouter une césure de ligne entre le mot et la ponctuation. Inversément, si l'éditeur n'ajoute pas d'espace, le rendu n'est pas correct. Il n'y a donc pas de solution à l'édition à moins de veiller à ajouter une espace insécable manuellement.
+En français, les ponctuations doubles sont précédées d'une espace insécable U+202F. Markdown ne le gère pas nativement. Si l'éditeur ajoute manuellement une espace comme dans ==<!--fr-typo-ignore-->ceci :<!--/fr-typo-ignore-->==, le risque est que le rendu HTML puisse ajouter une césure de ligne entre le mot et la ponctuation. Inversément, si l'éditeur n'ajoute pas d'espace, le rendu n'est pas correct. Il n'y a donc pas de solution à l'édition à moins de veiller à ajouter une espace insécable manuellement.
 
-Le plugin ajoute automatiquement une espace insécable U+202F avant les ponctuations doubles: `; ! ?` et une espace fine inssécable U+00A0 avant les deux-points `:`.
+Le plugin ajoute automatiquement une espace insécable U+202F avant les ponctuations doubles: ==;== ==!== ==?== et une espace fine inssécable U+00A0 avant les deux-points ==:==.
 
-Les points de suspension `...` sont remplacés par le caractère Unicode U+2026 `…`.
+Les points de suspension ==<!--fr-typo-ignore-->...<!--/fr-typo-ignore-->== sont remplacés par le caractère Unicode U+2026 ==…==.
 
 Les guillemets français `« »` sont également gérés. Le plugin ajoute une espace insécable après le guillemet ouvrant et avant le guillemet fermant. Il remplacera également les guillemets droits `"` par des guillemets français.
 
@@ -51,9 +51,9 @@ Est corrigée en :
 
 ## Unités
 
-Le plugin ajoute une espace insécable (U+202F) entre les nombres et les unités courantes comme `kg`, `cm`, `m`, `km`, `g`, `L`, `h`, `min`, `s` et les symboles monétaires comme `€`, `$`, `£`, `¥`.
+Le plugin ajoute une espace insécable (U+202F) entre les nombres et les unités courantes comme ==kg==, ==cm==, ==m==, ==km==, ==g==, ==L==, ==h==, ==min==, ==s== et les symboles monétaires comme ==€==, ==$==, ==£==, ==¥==.
 
-Par exemple `100km` est corrigé en `100 km`. Si vous souhaitez conserver la forme originale, entourez la valeur d'un élément ignoré (`<span>100km</span>` par exemple).
+Par exemple ==<span>100km</span>== est corrigé en ==100 km==. Si vous souhaitez conserver la forme originale, entourez la valeur d'un élément ignoré (`<span>100km</span>` par exemple).
 
 La configuration s'effectue ainsi:
 

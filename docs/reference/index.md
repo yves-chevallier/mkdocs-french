@@ -29,6 +29,8 @@ L'ensemble de l'API publique du package est accessible ci-dessous. Les classes e
     options:
       show_root_heading: true
       heading_level: 2
+      filters:
+        - "!Dictionary"
 
 ## Outils et constantes
 

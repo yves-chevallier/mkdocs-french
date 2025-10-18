@@ -1,4 +1,4 @@
-"""Shared abstractions and helpers for typographic rules.
+r"""Shared abstractions and helpers for typographic rules.
 
 This module defines the :class:`Rule` base class used by every concrete rule as
 well as a small regex helper to build consistent warning payloads.
