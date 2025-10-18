@@ -82,7 +82,7 @@ class FrenchPluginConfig(Config):
     enable_css_bullets = c.Type(bool, default=True)  # inject CSS for dash bullets
     css_scope_selector = c.Type(str, default="body")  # kept for compatibility
     admonitions = c.Choice((Level.ignore, Level.fix), default=Level.fix)
-    admonition_translations = c.Type(dict[str, str | None], default={})
+    admonition_translations = c.Type(dict, default={})
     summary = c.Type(bool, default=False)
 
     # enable line markers when warn is active (auto if any rule == warn)
@@ -130,19 +130,29 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         if self.config.justify:
             self._extra_css.add(package_dir / "css" / "french-justify.css")
 
-        config_mapping = cast(MutableMapping[str, Any], config)
+        config_mapping: MutableMapping[str, Any] | None = (
+            cast(MutableMapping[str, Any], config) if hasattr(config, "get") else None
+        )
         site_dir_attr = config.site_dir if hasattr(config, "site_dir") else None
         if isinstance(site_dir_attr, str):
             site_dir_value = site_dir_attr
         else:
-            site_dir_raw = config_mapping.get("site_dir", "site")
+            site_dir_raw = (
+                config_mapping.get("site_dir", "site")
+                if config_mapping is not None
+                else getattr(config, "site_dir", "site")
+            )
             site_dir_value = str(site_dir_raw)
         site_dir = Path(site_dir_value)
-        extra_css_source: Iterable[str] = config_mapping.get("extra_css", [])
-        extra_css: list[str] = []
-        for entry in extra_css_source:
-            extra_css.append(str(entry))
-        config_mapping["extra_css"] = extra_css_source
+        if config_mapping is not None:
+            extra_css_source: Iterable[str] = config_mapping.get("extra_css", [])
+        else:
+            extra_css_source = getattr(config, "extra_css", [])
+        extra_css: list[str] = [str(entry) for entry in extra_css_source]
+        if config_mapping is not None:
+            config_mapping["extra_css"] = extra_css
+        if hasattr(config, "extra_css"):
+            setattr(config, "extra_css", extra_css)
 
         self._site_dir = site_dir
         for entry in self._extra_css:
@@ -202,8 +212,6 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
     def on_page_content(
         self,
         html: str,
-        /,
-        *,
         page: Page,
         config: MkDocsConfig,
         files: Files,
@@ -364,8 +372,6 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
     def on_page_markdown(
         self,
         markdown: str,
-        /,
-        *,
         page: Page,
         config: MkDocsConfig,
         files: Files,
@@ -416,18 +422,24 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
 
         return "".join(lines)
 
-    def on_post_build(self, *, config: MkDocsConfig) -> None:
+    def on_post_build(self, config: MkDocsConfig) -> None:
         """Copy injected CSS files and optionally print a summary after build.
 
         Args:
             config: MkDocs configuration object.
         """
-        config_mapping = cast(MutableMapping[str, Any], config)
+        config_mapping: MutableMapping[str, Any] | None = (
+            cast(MutableMapping[str, Any], config) if hasattr(config, "get") else None
+        )
         site_dir_attr = config.site_dir if hasattr(config, "site_dir") else None
         if isinstance(site_dir_attr, str):
             site_dir_value = site_dir_attr
         else:
-            site_dir_raw = config_mapping.get("site_dir", "site")
+            site_dir_raw = (
+                config_mapping.get("site_dir", "site")
+                if config_mapping is not None
+                else getattr(config, "site_dir", "site")
+            )
             site_dir_value = str(site_dir_raw)
         site_dir = Path(site_dir_value)
         css_dir = site_dir / "css"

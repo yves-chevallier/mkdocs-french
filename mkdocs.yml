@@ -40,12 +40,6 @@ theme:
         name: Basculer en mode clair
   icon:
     repo: fontawesome/brands/github
-nav:
-  - Introduction: index.md
-  - Configuration: config.md
-  - Référence:
-      - Package mkdocs_french: reference/index.md
-      - Dictionnaire: reference/dictionary.md
 extra:
   version:
     provider: mike
@@ -78,6 +72,7 @@ extra_javascript:
 
 plugins:
   - search
+  - awesome-nav
   - mkdocstrings:
       default_handler: python
       handlers:

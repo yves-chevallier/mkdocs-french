@@ -26,10 +26,6 @@ This plugin is meant to improve MkDocs documentation written in French by checki
 
 ## Installation
 
-```bash
-pip install mkdocs-french
-```
-
 Activate the plugin in your `mkdocs.yml`:
 
 ```yaml
@@ -37,10 +33,19 @@ plugins:
   - french:
 ```
 
-Install the plugin using pip:
+## Développement avec uv
+
+Le projet utilise [uv](https://github.com/astral-sh/uv) pour la gestion des dépendances.
 
 ```bash
-pip install mkdocs-french
+# Installer les dépendances (runtime + extras de développement)
+uv sync --extra dev
+
+# Lancer la suite de tests
+uv run pytest
+
+# Construire la documentation MkDocs en local
+uv run mkdocs serve
 ```
 
 ## Données Morphalou pré-générées
@@ -52,10 +57,10 @@ Si vous utilisez le dépôt source, générez l’artéfact avant d’exécuter 
 
 ### Générer les artéfacts
 
-Utilisez la commande suivante (en environnement Poetry) :
+Utilisez la commande suivante (avec l'environnement uv configuré) :
 
 ```bash
-poetry run python -m mkdocs_french build
+uv run python -m mkdocs_french build
 ```
 
 L’option `--force` permet d’écraser un artéfact existant, et `--output` accepte un chemin personnalisé.
