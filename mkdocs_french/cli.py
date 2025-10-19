@@ -3,14 +3,28 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from pathlib import Path
+import re
 import sys
-from typing import Iterable, List, Sequence
+from typing import Iterable, List, Sequence, Tuple
 
 from .constants import DEFAULT_ADMONITION_TRANSLATIONS
 from .plugin import FrenchPlugin, Level, make_plugin_config
 
 from .artifacts.build import build_morphalou_artifact
+
+
+_COMMENT_DIRECTIVE_RE = re.compile(
+    r"<!--\s*(?P<closing>/)?fr-typo-ignore(?:(?:-(?P<variant>start|end)))?\s*-->",
+    re.IGNORECASE,
+)
+
+
+@dataclass
+class _Segment:
+    text: str
+    ignored: bool
 
 
 def main(argv: Iterable[str] | None = None) -> int:
@@ -141,7 +155,7 @@ def _run_check(args: argparse.Namespace) -> int:
             continue
 
         issues_found = True
-        rel_path = _format_relative(path, docs_dir)
+        rel_path = _format_relative(path)
         print(f"{rel_path}:")
         for issue in issues:
             line_display = issue["line"] if issue["line"] is not None else "—"
@@ -176,7 +190,7 @@ def _run_fix(args: argparse.Namespace) -> int:
             continue
         path.write_text(fixed, encoding="utf-8")
         updated_files.append(path)
-        rel_path = _format_relative(path, docs_dir)
+        rel_path = _format_relative(path)
         print(f"Corrigé: {rel_path} ({len(issues)} modification(s))")
 
     if not updated_files:
@@ -211,8 +225,8 @@ def _analyze_markdown(
 ) -> tuple[List[dict[str, object]], str]:
     """Return the list of pending issues and the corrected Markdown."""
 
+    segments = _build_segments(text, plugin)
     issues: List[dict[str, object]] = []
-    current = text
 
     for rule in plugin._markdown_orchestrator.rules:
         level = getattr(plugin.config, rule.config_attr)
@@ -220,35 +234,140 @@ def _analyze_markdown(
         if level_value == Level.ignore.value:
             continue
 
-        findings = rule.detect(current)
-        for start, _end, message, preview in findings:
-            issues.append(
-                {
-                    "rule": rule.name,
-                    "line": plugin._line_number_for_offset(current, start),
-                    "message": message,
-                    "preview": preview,
-                }
-            )
+        current_text = _segments_to_text(segments)
+        offset = 0
+        for segment in segments:
+            segment_length = len(segment.text)
+            if not segment.ignored:
+                findings = rule.detect(segment.text)
+                for start, _end, message, preview in findings:
+                    absolute_start = offset + start
+                    issues.append(
+                        {
+                            "rule": rule.name,
+                            "line": plugin._line_number_for_offset(
+                                current_text, absolute_start
+                            ),
+                            "message": message,
+                            "preview": preview,
+                        }
+                    )
+            offset += segment_length
 
         if level_value == Level.fix.value:
-            current = rule.fix(current)
+            for segment in segments:
+                if segment.ignored:
+                    continue
+                segment.text = rule.fix(segment.text)
+
+    current_text = _segments_to_text(segments)
 
     if plugin.config.foreign != Level.ignore:
-        replacements = plugin._foreign_replacements(current)
-        for start, _end, phrase, _replacement in replacements:
+        ignore_ranges = _collect_ignore_ranges(segments)
+        replacements = plugin._foreign_replacements(current_text)
+        applicable_replacements = [
+            (start, end, phrase, replacement)
+            for start, end, phrase, replacement in replacements
+            if not _range_overlaps(ignore_ranges, start, end)
+        ]
+        for start, _end, phrase, _replacement in applicable_replacements:
             issues.append(
                 {
                     "rule": "foreign",
-                    "line": plugin._line_number_for_offset(current, start),
+                    "line": plugin._line_number_for_offset(current_text, start),
                     "message": f"Locution étrangère non italique : «{phrase}»",
                     "preview": phrase,
                 }
             )
         if plugin.config.foreign == Level.fix:
-            current = _apply_replacements(current, replacements)
+            current_text = _apply_replacements(current_text, applicable_replacements)
 
-    return issues, current
+    return issues, current_text
+
+
+def _segments_to_text(segments: Sequence[_Segment]) -> str:
+    """Concatenate segment texts preserving ignored regions."""
+    return "".join(segment.text for segment in segments)
+
+
+def _collect_ignore_ranges(segments: Sequence[_Segment]) -> List[Tuple[int, int]]:
+    """Return absolute index ranges corresponding to ignored segments."""
+    ranges: List[Tuple[int, int]] = []
+    cursor = 0
+    for segment in segments:
+        length = len(segment.text)
+        if segment.ignored:
+            ranges.append((cursor, cursor + length))
+        cursor += length
+    return ranges
+
+
+def _range_overlaps(ranges: Sequence[Tuple[int, int]], start: int, end: int) -> bool:
+    """Return whether the provided span overlaps any ignored range."""
+    return any(start < rng_end and end > rng_start for rng_start, rng_end in ranges)
+
+
+def _build_segments(text: str, plugin: FrenchPlugin) -> List[_Segment]:
+    """Split text into ignored and active segments based on directives."""
+    ranges = _compute_ignore_ranges(text, plugin)
+    if not ranges:
+        return [_Segment(text=text, ignored=False)]
+
+    segments: List[_Segment] = []
+    cursor = 0
+    for start, end in ranges:
+        if cursor < start:
+            segments.append(_Segment(text=text[cursor:start], ignored=False))
+        segments.append(_Segment(text=text[start:end], ignored=True))
+        cursor = end
+    if cursor < len(text):
+        segments.append(_Segment(text=text[cursor:], ignored=False))
+    return segments
+
+
+def _compute_ignore_ranges(text: str, plugin: FrenchPlugin) -> List[Tuple[int, int]]:
+    """Combine plugin-defined ignore ranges with comment directives."""
+    ranges = list(plugin._markdown_ignore_ranges(text))
+    ranges.extend(_comment_ignore_ranges(text))
+    return _merge_ranges(ranges)
+
+
+def _merge_ranges(ranges: Sequence[Tuple[int, int]]) -> List[Tuple[int, int]]:
+    """Merge overlapping or adjacent ranges."""
+    if not ranges:
+        return []
+    sorted_ranges = sorted(ranges)
+    merged: List[Tuple[int, int]] = [sorted_ranges[0]]
+    for start, end in sorted_ranges[1:]:
+        last_start, last_end = merged[-1]
+        if start <= last_end:
+            merged[-1] = (last_start, max(last_end, end))
+        else:
+            merged.append((start, end))
+    return merged
+
+
+def _comment_ignore_ranges(text: str) -> List[Tuple[int, int]]:
+    """Return ranges delimited by HTML comment ignore directives."""
+    ranges: List[Tuple[int, int]] = []
+    stack: List[Tuple[int, int]] = []
+
+    for match in _COMMENT_DIRECTIVE_RE.finditer(text):
+        closing = match.group("closing")
+        variant = (match.group("variant") or "").lower()
+
+        is_start = not closing and variant != "end"
+        is_end = bool(closing) or variant == "end"
+
+        if is_start:
+            stack.append((match.start(), match.end()))
+            continue
+
+        if is_end and stack:
+            _start_comment_start, start_comment_end = stack.pop()
+            ranges.append((start_comment_end, match.start()))
+
+    return [rng for rng in ranges if rng[0] < rng[1]]
 
 
 def _apply_replacements(
@@ -278,9 +397,11 @@ def _iter_markdown_files(docs_dir: Path) -> Sequence[Path]:
     )
 
 
-def _format_relative(path: Path, root: Path) -> str:
-    """Return a path relative to ``root`` whenever possible."""
+def _format_relative(path: Path) -> str:
+    """Return a path relative to the current working directory when possible."""
+    root = Path.cwd().resolve()
+    abs_path = path.resolve()
     try:
-        return str(path.relative_to(root))
+        return str(abs_path.relative_to(root))
     except ValueError:
-        return str(path)
+        return str(abs_path)
