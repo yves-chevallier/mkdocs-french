@@ -4,7 +4,7 @@
   "editor.defaultFormatter": "charliermarsh.ruff",
   "editor.formatOnSave": true,
   "editor.codeActionsOnSave": {
-    "source.fixAll": true
+    "source.fixAll": "explicit"
   },
   "ruff.lint.enable": true,
   "ruff.lint.select": ["E", "F", "I", "B", "UP"]
