@@ -27,3 +27,7 @@ Pour le thème par défaut de MkDocs, ajoutez la configuration de la langue dans
 site:
   language: fr
 ```
+
+## Corriger les fichiers sources
+
+Pour corriger les fichiers sources existants, vous pouvez utiliser la commande suivante:
