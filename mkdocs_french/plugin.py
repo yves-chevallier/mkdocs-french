@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import shutil
 from typing import Any, cast
+from types import SimpleNamespace
 
 from bs4 import BeautifulSoup, Comment
 from bs4.element import NavigableString, PageElement, Tag
@@ -27,7 +28,13 @@ from .constants import (
     SKIP_PARENTS,
     SKIP_TAGS,
 )
-from .rules import Rule, RuleOrchestrator, RuleWarning, build_rules
+from .rules import (
+    Rule,
+    RuleOrchestrator,
+    RuleWarning,
+    build_html_rules,
+    build_markdown_rules,
+)
 
 
 ConfigTranslationMap = MutableMapping[str, str | None]
@@ -102,7 +109,9 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         self._extra_css: set[Path] = set()
         self._admonition_translations: dict[str, str] = {}
         self._site_dir: Path | None = None
-        self._orchestrator = RuleOrchestrator(build_rules())
+        self._markdown_orchestrator = RuleOrchestrator(build_markdown_rules())
+        self._html_orchestrator = RuleOrchestrator(build_html_rules())
+        self._foreign_processed_pages: set[str] = set()
         self._foreign_pattern: re.Pattern[str] | None = None
 
     def on_config(self, config: MkDocsConfig) -> MkDocsConfig | None:
@@ -209,6 +218,25 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
                 }
                 self._collected_warnings.append(warning_entry)
 
+    def _source_path_for_page(self, page: Page) -> str:
+        """Return the best-effort source path for the given MkDocs page."""
+        file_obj = getattr(page, "file", None)
+        if file_obj is None:
+            return "<page>"
+        file_data = cast(Any, file_obj)
+        raw_src = cast(str | None, getattr(file_data, "src_path", None))
+        if raw_src:
+            return str(raw_src)
+        abs_src = cast(str | None, getattr(file_data, "abs_src_path", None))
+        if abs_src:
+            return str(abs_src)
+        return "<page>"
+
+    @staticmethod
+    def _line_number_for_offset(text: str, index: int) -> int:
+        """Estimate the 1-based line number for a given string offset."""
+        return text.count("\n", 0, index) + 1
+
     def on_page_content(
         self,
         html: str,
@@ -229,6 +257,7 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         """
         del config, files
         plugin_config: FrenchPluginConfig = self.config
+        src_path = self._source_path_for_page(page)
         soup = BeautifulSoup(html, "html.parser")
 
         # 1) Collect FRL marker comments
@@ -318,31 +347,18 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
                     continue
 
                 cfg = plugin_config
-                file_obj = page.file if hasattr(page, "file") else None
-                if file_obj is None:
-                    src_path = "<page>"
-                else:
-                    file_data = cast(Any, file_obj)
-                    raw_src: str | None
-                    if hasattr(file_data, "src_path"):
-                        raw_src = cast(str | None, file_data.src_path)
-                    else:
-                        raw_src = None
-                    if raw_src is None and hasattr(file_data, "abs_src_path"):
-                        raw_src = cast(str | None, file_data.abs_src_path)
-                    if raw_src is None:
-                        src_path = "<page>"
-                    else:
-                        src_path = str(raw_src)
-
-                s, warnings = self._orchestrator.process(
+                s, warnings = self._html_orchestrator.process(
                     s,
                     self._level_for_rule,
                 )
                 self._emit_warnings(warnings, src_path, None)
 
                 handled_foreign = False
-                if cfg.foreign != Level.ignore and parent:
+                if (
+                    cfg.foreign != Level.ignore
+                    and parent
+                    and src_path not in self._foreign_processed_pages
+                ):
                     s_text = s if s != node else str(node)
                     parents_chain: list[PageElement] = [parent]
                     parents_chain.extend(
@@ -367,6 +383,9 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
                 if s != node:
                     node.replace_with(NavigableString(s))
 
+        if src_path != "<page>":
+            self._foreign_processed_pages.discard(src_path)
+
         return str(soup)
 
     def on_page_markdown(
@@ -387,40 +406,15 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         Returns:
             The potentially modified markdown content.
         """
-        del page, config, files
-        if self.config.admonitions != Level.fix:
-            return markdown
+        del config, files
+        src_path = self._source_path_for_page(page)
 
-        lines = markdown.splitlines(keepends=True)
+        processed = self._apply_markdown_rules(markdown, src_path)
 
-        def split_newline(text: str) -> tuple[str, str]:
-            if text.endswith("\r\n"):
-                return text[:-2], "\r\n"
-            if text.endswith("\n"):
-                return text[:-1], "\n"
-            if text.endswith("\r"):
-                return text[:-1], "\r"
-            return text, ""
+        if self.config.admonitions == Level.fix:
+            processed = self._translate_admonitions(processed)
 
-        for idx, raw in enumerate(lines):
-            body, newline = split_newline(raw)
-            match = RE_ADMONITION.match(body)
-            if not match:
-                continue
-            admonition_type = match.group("type")
-            title = match.group("title")
-            translation = self._admonition_translations.get(admonition_type.lower())
-            if translation is None or (title and title.strip()):
-                continue
-
-            indent = match.group("indent")
-            marker = match.group("marker")
-            options = match.group("options") or ""
-            lines[idx] = (
-                f'{indent}{marker} {admonition_type}{options} "{translation}"{newline}'
-            )
-
-        return "".join(lines)
+        return processed
 
     def on_post_build(self, config: MkDocsConfig) -> None:
         """Copy injected CSS files and optionally print a summary after build.
@@ -602,3 +596,241 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
                 f"({line}) -> {entry['message']}{suggestion}"
             )
         print()
+    def _apply_markdown_rules(self, markdown: str, src_path: str) -> str:
+        """Run markdown-stage rules and foreign locution handling."""
+        processed, warnings = self._markdown_orchestrator.process(
+            markdown, self._level_for_rule
+        )
+        if warnings:
+            for warning in warnings:
+                line = self._line_number_for_offset(markdown, warning.start)
+                self._emit_warnings([warning], src_path, line)
+        if processed != markdown:
+            markdown = processed
+
+        cfg = self.config
+        if cfg.foreign != Level.ignore:
+            markdown = self._apply_foreign_markdown(markdown, cfg.foreign, src_path)
+            if src_path != "<page>":
+                self._foreign_processed_pages.add(src_path)
+        else:
+            self._foreign_processed_pages.discard(src_path)
+
+        return markdown
+
+    def _translate_admonitions(self, markdown: str) -> str:
+        """Translate admonition titles when no explicit title is provided."""
+        lines = markdown.splitlines(keepends=True)
+
+        def split_newline(text: str) -> tuple[str, str]:
+            if text.endswith("\r\n"):
+                return text[:-2], "\r\n"
+            if text.endswith("\n"):
+                return text[:-1], "\n"
+            if text.endswith("\r"):
+                return text[:-1], "\r"
+            return text, ""
+
+        for idx, raw in enumerate(lines):
+            body, newline = split_newline(raw)
+            match = RE_ADMONITION.match(body)
+            if not match:
+                continue
+            admonition_type = match.group("type")
+            title = match.group("title")
+            translation = self._admonition_translations.get(admonition_type.lower())
+            if translation is None or (title and title.strip()):
+                continue
+
+            indent = match.group("indent")
+            marker = match.group("marker")
+            options = match.group("options") or ""
+            lines[idx] = (
+                f'{indent}{marker} {admonition_type}{options} "{translation}"{newline}'
+            )
+
+        return "".join(lines)
+
+    def _apply_foreign_markdown(
+        self,
+        markdown: str,
+        level: Level,
+        src_path: str,
+    ) -> str:
+        """Handle foreign locutions directly in the Markdown source."""
+        if not FOREIGN_LOCUTIONS:
+            return markdown
+
+        replacements = self._foreign_replacements(markdown)
+        if not replacements:
+            return markdown
+
+        if level == Level.warn:
+            for _, _, phrase, _ in replacements:
+                self._log_foreign_warning(phrase, src_path)
+            if src_path != "<page>":
+                self._foreign_processed_pages.add(src_path)
+            return markdown
+
+        pieces: list[str] = []
+        last_idx = 0
+
+        for start, end, phrase, replacement in replacements:
+            pieces.append(markdown[last_idx:start])
+            pieces.append(replacement)
+            last_idx = end
+
+        pieces.append(markdown[last_idx:])
+
+        if src_path != "<page>":
+            self._foreign_processed_pages.add(src_path)
+
+        return "".join(pieces)
+
+    def _foreign_replacements(
+        self, markdown: str
+    ) -> list[tuple[int, int, str, str]]:
+        """Compute replacements required for foreign locutions."""
+        pattern = self._foreign_pattern
+        if pattern is None:
+            escaped = "|".join(re.escape(loc) for loc in FOREIGN_LOCUTIONS)
+            self._foreign_pattern = re.compile(
+                rf"(?<![\w-])({escaped})(?![\w-])", re.IGNORECASE
+            )
+            pattern = self._foreign_pattern
+
+        italic_ranges = self._compute_markdown_italic_ranges(markdown)
+        replacements: list[tuple[int, int, str, str]] = []
+        last_idx = 0
+
+        for match in pattern.finditer(markdown):
+            start, end = match.span()
+            if start < last_idx:
+                continue
+
+            if self._is_already_wrapped_foreign(markdown, start, end):
+                last_idx = end
+                continue
+
+            phrase = match.group(1)
+            if self._is_inside_markdown_italic(start, end, italic_ranges):
+                replacement = self._wrap_foreign_span(phrase)
+            else:
+                replacement = self._wrap_foreign_em(phrase)
+
+            replacements.append((start, end, phrase, replacement))
+            last_idx = end
+
+        return replacements
+
+    @staticmethod
+    def _wrap_foreign_em(text: str) -> str:
+        """Return Markdown-emphasis markup for a foreign locution."""
+        return f"_{text}_"
+
+    @staticmethod
+    def _wrap_foreign_span(text: str) -> str:
+        """Return inline HTML span ensuring roman style inside italic context."""
+        return f'<span style="font-style: normal;">{text}</span>'
+
+    @staticmethod
+    def _is_inside_markdown_italic(
+        start: int, end: int, italic_ranges: list[tuple[int, int]]
+    ) -> bool:
+        """Return whether an index range is located within italic markup."""
+        for rng_start, rng_end in italic_ranges:
+            if rng_start <= start and end <= rng_end:
+                return True
+        return False
+
+    @staticmethod
+    def _is_already_wrapped_foreign(markdown: str, start: int, end: int) -> bool:
+        """Detect whether the matched span already carries our markup."""
+        span_prefix = '<span style="font-style: normal;">'
+        if markdown[max(0, start - len(span_prefix)) : start].lower().endswith(
+            span_prefix
+        ) and markdown[end : end + len("</span>")].lower().startswith("</span>"):
+            return True
+        if start >= 1 and end < len(markdown):
+            if markdown[start - 1] in {"_", "*"} and markdown[end] == markdown[start - 1]:
+                return True
+        return False
+
+    def _compute_markdown_italic_ranges(self, markdown: str) -> list[tuple[int, int]]:
+        """Return rough ranges corresponding to italic segments in Markdown."""
+        ranges: list[tuple[int, int]] = []
+        stack: list[tuple[str, int]] = []
+        i = 0
+        length = len(markdown)
+
+        while i < length:
+            if markdown.startswith("```", i) or markdown.startswith("~~~", i):
+                fence = markdown[i : i + 3]
+                closing = markdown.find(fence, i + 3)
+                if closing == -1:
+                    break
+                i = closing + 3
+                continue
+
+            char = markdown[i]
+            if char == "\\":
+                i += 2
+                continue
+            if char == "`":
+                end = markdown.find("`", i + 1)
+                if end == -1:
+                    break
+                i = end + 1
+                continue
+
+            if char in "*_":
+                next_char = markdown[i + 1] if i + 1 < length else ""
+                if next_char == char:
+                    i += 2
+                    continue
+                prev_char = markdown[i - 1] if i > 0 else ""
+                if prev_char.isalnum() and next_char.isalnum():
+                    i += 1
+                    continue
+                if stack and stack[-1][0] == char:
+                    _, open_idx = stack.pop()
+                    ranges.append((open_idx + 1, i))
+                else:
+                    stack.append((char, i))
+                i += 1
+                continue
+
+            i += 1
+
+        for match in re.finditer(
+            r"<(em|i)\b[^>]*>(.*?)</\1>", markdown, re.IGNORECASE | re.DOTALL
+        ):
+            ranges.append((match.start(2), match.end(2)))
+
+        ranges.sort()
+        return ranges
+
+
+def make_plugin_config(**overrides: Any) -> SimpleNamespace:
+    """Create a lightweight configuration namespace for standalone usage."""
+
+    defaults = {
+        "abbreviation": Level.fix,
+        "ordinaux": Level.fix,
+        "ligatures": Level.ignore,
+        "casse": Level.warn,
+        "spacing": Level.fix,
+        "quotes": Level.fix,
+        "units": Level.fix,
+        "diacritics": Level.warn,
+        "foreign": Level.fix,
+        "justify": True,
+        "enable_css_bullets": True,
+        "css_scope_selector": "body",
+        "admonitions": Level.fix,
+        "admonition_translations": {},
+        "summary": False,
+        "force_line_markers": False,
+    }
+    defaults.update(overrides)
+    return SimpleNamespace(**defaults)

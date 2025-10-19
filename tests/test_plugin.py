@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from types import SimpleNamespace
+
 from bs4 import BeautifulSoup
 
 from mkdocs_french.constants import DEFAULT_ADMONITION_TRANSLATIONS, NBSP, NNBSP
@@ -244,6 +246,162 @@ def test_emit_warnings_logs_and_collects_summary(plugin_factory, caplog):
     ]
 
 
+def test_source_path_for_page_variants(plugin_factory):
+    plugin = plugin_factory()
+
+    page_without_file = SimpleNamespace()
+    assert plugin._source_path_for_page(page_without_file) == "<page>"
+
+    page_with_src = SimpleNamespace(file=SimpleNamespace(src_path="docs/guide.md"))
+    assert plugin._source_path_for_page(page_with_src) == "docs/guide.md"
+
+    page_with_abs = SimpleNamespace(
+        file=SimpleNamespace(src_path=None, abs_src_path="/tmp/guide.md")
+    )
+    assert plugin._source_path_for_page(page_with_abs) == "/tmp/guide.md"
+
+
+def test_apply_markdown_rules_emits_warning_summary(plugin_factory, caplog):
+    plugin = plugin_factory(foreign=Level.ignore, summary=True)
+    dummy_rule = DummyRule()
+    warning = RuleWarning(
+        rule=dummy_rule,
+        start=2,
+        end=5,
+        message="Problème détecté",
+        preview="fixe",
+    )
+    plugin._markdown_orchestrator = SimpleNamespace(
+        process=lambda text, level: (text, [warning])
+    )
+
+    with caplog.at_level(logging.WARNING, logger="mkdocs.plugins.fr_typo"):
+        updated = plugin._apply_markdown_rules("AA\nBB", "docs/source.md")
+
+    assert updated == "AA\nBB"
+    assert "Problème détecté" in caplog.text
+    assert plugin._collected_warnings
+    assert any(entry["line"] == 1 for entry in plugin._collected_warnings)
+
+
+def test_apply_foreign_markdown_warn_tracks_page(plugin_factory, caplog):
+    plugin = plugin_factory(foreign=Level.warn, summary=True)
+    plugin._foreign_processed_pages.clear()
+
+    with caplog.at_level(logging.WARNING, logger="mkdocs.plugins.fr_typo"):
+        text = plugin._apply_foreign_markdown(
+            "Le chanteur a capella.", Level.warn, "docs/song.md"
+        )
+
+    assert text == "Le chanteur a capella."
+    assert "Locution étrangère non italique" in caplog.text
+    assert "docs/song.md" in plugin._foreign_processed_pages
+
+
+def test_foreign_replacements_skip_existing_markup(plugin_factory):
+    plugin = plugin_factory()
+    markdown_text = (
+        "_a capella_ est déjà italique et "
+        '<span style="font-style: normal;">de facto</span> aussi.'
+    )
+
+    replacements = plugin._foreign_replacements(markdown_text)
+
+    phrases = [phrase for _start, _end, phrase, _ in replacements]
+    assert "a capella" not in phrases
+    assert "de facto" not in phrases
+
+
+def test_apply_foreign_markdown_fix_mode(plugin_factory):
+    plugin = plugin_factory(foreign=Level.fix)
+
+    processed = plugin._apply_foreign_markdown(
+        "Le chanteur a capella.", Level.fix, "docs/song.md"
+    )
+
+    assert "_a capella_" in processed
+    assert "docs/song.md" in plugin._foreign_processed_pages
+
+
+def test_apply_foreign_markdown_no_locutions(monkeypatch, plugin_factory):
+    plugin = plugin_factory()
+    monkeypatch.setattr("mkdocs_french.plugin.FOREIGN_LOCUTIONS", set())
+    plugin._foreign_pattern = None
+
+    processed = plugin._apply_foreign_markdown(
+        "Texte sans locutions.", Level.fix, "docs/page.md"
+    )
+
+    assert processed == "Texte sans locutions."
+
+
+def test_compute_markdown_italic_ranges_handles_code_fence(plugin_factory):
+    plugin = plugin_factory()
+    markdown = "Texte *italique* et `code`.\n```python\n*pas italique*\n```"
+
+    ranges = plugin._compute_markdown_italic_ranges(markdown)
+
+    assert any(markdown[start:end] == "italique" for start, end in ranges)
+    assert all("*pas italique*" not in markdown[start:end] for start, end in ranges)
+
+
+def test_apply_foreign_in_html_warn_mode(plugin_factory, page, caplog):
+    plugin = plugin_factory(foreign=Level.warn, summary=True)
+    html = "<p>Il a agi de facto.</p>"
+
+    with caplog.at_level(logging.WARNING, logger="mkdocs.plugins.fr_typo"):
+        result = plugin.on_page_content(html, page, {}, None)
+
+    assert "Locution étrangère non italique" in caplog.text
+    assert "<em>" not in result
+
+
+def test_apply_foreign_in_html_fix_mode(plugin_factory, page):
+    plugin = plugin_factory(foreign=Level.fix)
+    html = "<p>Il a agi de facto.</p>"
+
+    result = plugin.on_page_content(html, page, {}, None)
+    soup = BeautifulSoup(result, "html.parser")
+
+    italic = soup.find("em")
+    assert italic is not None
+    assert italic.get_text() == "de facto"
+
+
+def test_apply_foreign_in_html_italic_context(plugin_factory, page):
+    plugin = plugin_factory(foreign=Level.fix)
+    html = "<p><em>Il a agi de facto.</em></p>"
+
+    result = plugin.on_page_content(html, page, {}, None)
+    soup = BeautifulSoup(result, "html.parser")
+
+    span = soup.find("span", attrs={"style": "font-style: normal;"})
+    assert span is not None
+    assert span.get_text() == "de facto"
+
+
+def test_on_page_content_handles_empty_foreign_list(monkeypatch, plugin_factory, page):
+    plugin = plugin_factory()
+    monkeypatch.setattr("mkdocs_french.plugin.FOREIGN_LOCUTIONS", set())
+    plugin._foreign_pattern = None
+
+    result = plugin.on_page_content("<p>Texte simple.</p>", page, {}, None)
+
+    assert "<em>" not in result
+
+
+def test_on_page_content_respects_processed_page_cache(plugin_factory, page):
+    plugin = plugin_factory()
+    plugin._foreign_processed_pages.add("docs/index.md")
+
+    result = plugin.on_page_content("<p>Le chanteur a capella.</p>", page, {}, None)
+    soup = BeautifulSoup(result, "html.parser")
+
+    # No redundant <em> added because page already processed in markdown phase
+    assert not soup.find_all("em")
+    assert "docs/index.md" not in plugin._foreign_processed_pages
+
+
 def test_on_page_markdown_translates_admonition_title(plugin_factory, page):
     plugin = plugin_factory()
     markdown_text = "!!! warning\n    Attention\n"
@@ -317,17 +475,19 @@ def test_on_page_content_respects_ignore_markers(plugin_factory, page):
     assert texts[2] == f"Dernier{NBSP}: test{NNBSP}!"
 
 
-def test_on_page_content_handles_documented_spacing_cases(plugin_factory, page):
+def test_on_page_content_handles_documented_spacing_cases(
+    plugin_factory, page, render_with_plugin
+):
     plugin = plugin_factory(
         casse=Level.ignore, diacritics=Level.ignore, units=Level.ignore
     )
-    html = (
-        "<p>Tu n'as pas pris ton parapluie!. "
-        "Tu vas encore -- te faire mouiller, etc...</p>"
+    markdown_text = (
+        "Tu n'as pas pris ton parapluie!. "
+        "Tu vas encore -- te faire mouiller, etc..."
     )
 
-    result = plugin.on_page_content(html, page, {}, None)
-    soup = BeautifulSoup(result, "html.parser")
+    rendered = render_with_plugin(plugin, markdown_text, page)
+    soup = BeautifulSoup(rendered, "html.parser")
 
     expected = (
         f"Tu n’as pas pris ton parapluie{NNBSP}! "
@@ -356,12 +516,48 @@ def test_on_page_content_respects_ignore_classes(plugin_factory, page):
     assert texts[0] == f"Normal{NBSP}: test{NNBSP}!"
     assert texts[1] == "Ignorer: test!"
 
-
-def test_on_page_content_applies_foreign_italicization(plugin_factory, page):
-    plugin = plugin_factory()
-    html = "<p>Le chanteur a capella a été diplômé honoris causa par l'université.</p>"
+def test_on_page_content_inline_ignore_comment(plugin_factory, page):
+    plugin = plugin_factory(
+        abbreviation=Level.ignore,
+        ordinaux=Level.ignore,
+        ligatures=Level.ignore,
+        casse=Level.ignore,
+        spacing=Level.fix,
+        quotes=Level.ignore,
+        units=Level.ignore,
+        diacritics=Level.ignore,
+    )
+    html = "<p>Premier: test!</p><!--fr-typo-ignore--><p>Ignorer: test!</p>"
 
     result = plugin.on_page_content(html, page, {}, None)
+    soup = BeautifulSoup(result, "html.parser")
+    texts = [p.get_text() for p in soup.find_all("p")]
+
+    assert texts[0] == f"Premier{NBSP}: test{NNBSP}!"
+    assert texts[1] == "Ignorer: test!"
+
+
+def test_on_page_content_preserves_nohighlight_code(plugin_factory, page):
+    plugin = plugin_factory()
+    html = '<p><code class="nohighlight">de facto</code> dans le texte.</p>'
+
+    result = plugin.on_page_content(html, page, {}, None)
+    soup = BeautifulSoup(result, "html.parser")
+
+    code = soup.find("code")
+    assert code.get_text() == "de facto"
+    assert not soup.find("em")
+
+
+def test_on_page_content_applies_foreign_italicization(
+    plugin_factory, page, render_with_plugin
+):
+    plugin = plugin_factory()
+    markdown_text = (
+        "Le chanteur a capella a été diplômé honoris causa par l'université."
+    )
+
+    result = render_with_plugin(plugin, markdown_text, page)
     soup = BeautifulSoup(result, "html.parser")
 
     italics = [em.get_text() for em in soup.find_all("em")]
@@ -369,11 +565,13 @@ def test_on_page_content_applies_foreign_italicization(plugin_factory, page):
     assert "honoris causa" in italics
 
 
-def test_on_page_content_applies_foreign_in_italic_context(plugin_factory, page):
+def test_on_page_content_applies_foreign_in_italic_context(
+    plugin_factory, page, render_with_plugin
+):
     plugin = plugin_factory()
-    html = "<p><em>Avec cette distinction, je serai de facto plus riche.</em></p>"
+    markdown_text = "*Avec cette distinction, je serai de facto plus riche.*"
 
-    result = plugin.on_page_content(html, page, {}, None)
+    result = render_with_plugin(plugin, markdown_text, page)
     soup = BeautifulSoup(result, "html.parser")
 
     em = soup.find("em")
@@ -385,15 +583,18 @@ def test_on_page_content_applies_foreign_in_italic_context(plugin_factory, page)
 
 def test_on_page_content_foreign_warns_without_fix(plugin_factory, page, caplog):
     plugin = plugin_factory(foreign=Level.warn)
-    html = "<p>Il a agi de facto.</p>"
+    markdown_text = "Il a agi de facto."
 
     with caplog.at_level(logging.WARNING, logger="mkdocs.plugins.fr_typo"):
-        plugin.on_page_content(html, page, {}, None)
+        plugin.on_page_markdown(markdown_text, page, {}, None)
+        plugin.on_page_content("<p>Il a agi de facto.</p>", page, {}, None)
 
     assert "Locution étrangère non italique : «de facto»" in caplog.text
 
 
-def test_on_page_content_keeps_sentence_start_capital(plugin_factory, page):
+def test_on_page_content_keeps_sentence_start_capital(
+    plugin_factory, page, render_with_plugin
+):
     plugin = plugin_factory(
         abbreviation=Level.ignore,
         ordinaux=Level.ignore,
@@ -404,15 +605,17 @@ def test_on_page_content_keeps_sentence_start_capital(plugin_factory, page):
         units=Level.ignore,
         diacritics=Level.ignore,
     )
-    html = "<p>Erreur: Lundi, réunion.</p>"
+    markdown_text = "Erreur: Lundi, réunion."
 
-    result = plugin.on_page_content(html, page, {}, None)
+    result = render_with_plugin(plugin, markdown_text, page)
     soup = BeautifulSoup(result, "html.parser")
 
     assert soup.p.get_text() == "Erreur: Lundi, réunion."
 
 
-def test_on_page_content_uppercases_countries(plugin_factory, page):
+def test_on_page_content_uppercases_countries(
+    plugin_factory, page, render_with_plugin
+):
     plugin = plugin_factory(
         abbreviation=Level.ignore,
         ordinaux=Level.ignore,
@@ -423,9 +626,9 @@ def test_on_page_content_uppercases_countries(plugin_factory, page):
         units=Level.ignore,
         diacritics=Level.ignore,
     )
-    html = "<p>voyage en france et espagne</p>"
+    markdown_text = "voyage en france et espagne"
 
-    result = plugin.on_page_content(html, page, {}, None)
+    result = render_with_plugin(plugin, markdown_text, page)
     soup = BeautifulSoup(result, "html.parser")
 
     assert soup.p.get_text() == "voyage en France et Espagne"

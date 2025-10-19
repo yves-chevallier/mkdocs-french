@@ -67,38 +67,20 @@ except ImportError:  # pragma: no cover - exercised when mkdocs missing
     sys.modules["mkdocs.plugins"] = plugins_module
 
 from mkdocs_french.constants import DEFAULT_ADMONITION_TRANSLATIONS
-from mkdocs_french.plugin import FrenchPlugin, Level
-
-
-def make_plugin_config(**overrides):
-    """Create a lightweight config namespace for the plugin."""
-    defaults = {
-        "abbreviation": Level.fix,
-        "ordinaux": Level.fix,
-        "ligatures": Level.ignore,
-        "casse": Level.warn,
-        "spacing": Level.fix,
-        "quotes": Level.fix,
-        "units": Level.fix,
-        "diacritics": Level.warn,
-        "foreign": Level.fix,
-        "justify": False,
-        "enable_css_bullets": False,  # disabled by default in tests
-        "css_scope_selector": "body",
-        "admonitions": Level.fix,
-        "admonition_translations": {},
-        "summary": False,
-        "force_line_markers": False,
-    }
-    defaults.update(overrides)
-    return SimpleNamespace(**defaults)
+from mkdocs_french.plugin import FrenchPlugin, Level, make_plugin_config
 
 
 @pytest.fixture
 def plugin_factory():
     def factory(**config_overrides):
         plugin = FrenchPlugin()
-        plugin.config = make_plugin_config(**config_overrides)
+        base_overrides = {
+            "justify": False,
+            "enable_css_bullets": False,
+        }
+        base_overrides.update(config_overrides)
+        base_config = make_plugin_config(**base_overrides)
+        plugin.config = base_config
         plugin._collected_warnings = []
         plugin._admonition_translations = DEFAULT_ADMONITION_TRANSLATIONS.copy()
         return plugin

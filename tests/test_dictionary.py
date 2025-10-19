@@ -91,3 +91,37 @@ def test_dictionary_cleanup_removes_temp_dir():
     assert workdir.exists()
     dictionary.cleanup()
     assert not workdir.exists()
+
+
+def test_ligaturize_handles_empty_word():
+    dictionary = make_dictionary({"œdipe"})
+    assert dictionary.ligaturize("") == ""
+
+
+def test_contains_empty_fragment_returns_empty():
+    dictionary = make_dictionary({"mot"})
+    assert dictionary.contains("") == ()
+
+
+def test_dictionary_missing_static_artifact_triggers_index_build(tmp_path):
+    artifact = tmp_path / "missing.json.gz"
+    dictionary = Dictionary(use_static_data=True, data_path=artifact)
+    dictionary._prepared = True
+    dictionary._prepare_attempted = True
+
+    # When artifact is absent, fallback indexes should still enable lookups
+    assert dictionary.ligaturize("oeuvre") == "œuvre"
+
+
+def test_dictionary_invalid_artifact_logs_warning(tmp_path, caplog):
+    artifact = tmp_path / "broken.json.gz"
+    with gzip.open(artifact, "wb") as handle:
+        handle.write(b"not-json")
+
+    with caplog.at_level("WARNING"):
+        dictionary = Dictionary(use_static_data=True, data_path=artifact)
+    dictionary._prepared = True
+    dictionary._prepare_attempted = True
+
+    assert any("Artéfact Morphalou illisible" in record.message for record in caplog.records)
+    assert dictionary.words  # fallback data loaded

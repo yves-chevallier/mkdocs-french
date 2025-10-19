@@ -12,23 +12,32 @@ from .spacing import SpacingRule
 from .units import UnitsRule
 
 
-def build_rules() -> tuple[Rule, ...]:
-    """Return a freshly instantiated tuple of all default rules.
+def build_markdown_rules() -> tuple[Rule, ...]:
+    """Return rules applied while processing Markdown sources."""
 
-    Returns:
-        Tuple containing new instances of each available rule, ordered to match
-        the desired processing chain.
-    """
     return (
         AbbreviationRule(),
+        CasseRule(),
+        DiacriticsRule(),
+    )
+
+
+def build_html_rules() -> tuple[Rule, ...]:
+    """Return rules applied while processing rendered HTML."""
+
+    return (
         OrdinauxRule(),
         LigaturesRule(),
-        CasseRule(),
         SpacingRule(),
         QuotesRule(),
         UnitsRule(),
-        DiacriticsRule(),
     )
+
+
+def build_rules() -> tuple[Rule, ...]:
+    """Return the full rule chain as used historically."""
+
+    return build_markdown_rules() + build_html_rules()
 
 
 ALL_RULES = build_rules()
@@ -38,6 +47,8 @@ __all__ = [
     "RuleResult",
     "RuleWarning",
     "RuleOrchestrator",
+    "build_markdown_rules",
+    "build_html_rules",
     "ALL_RULES",
     "build_rules",
 ]

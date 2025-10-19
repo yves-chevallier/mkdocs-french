@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 from pathlib import Path
 
+from mkdocs_french import cli as cli_module
 from mkdocs_french.cli import main
 
 
@@ -33,3 +34,89 @@ def test_cli_without_command_shows_help(capsys):
 def test_module_main_imports_cli_main():
     module = importlib.import_module("mkdocs_french.__main__")
     assert module.main is main
+
+
+def test_cli_check_reports_issues(tmp_path, capsys):
+    docs_dir = tmp_path / "sources"
+    docs_dir.mkdir()
+    md_path = docs_dir / "page.md"
+    md_path.write_text(
+        "C a d que le chanteur a capella voyage en france.\n",
+        encoding="utf-8",
+    )
+
+    exit_code = main(["check", "--docs-dir", str(docs_dir)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "page.md" in captured.out
+    assert "[abbreviation]" in captured.out
+    assert "[foreign]" in captured.out
+
+
+def test_cli_fix_updates_files(tmp_path, capsys):
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    md_path = docs_dir / "page.md"
+    md_path.write_text(
+        "C a d que le chanteur a capella voyage en france.\n",
+        encoding="utf-8",
+    )
+
+    exit_code = main(["fix", "--docs-dir", str(docs_dir)])
+    captured_fix = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "Corrigé" in captured_fix.out
+
+    updated = md_path.read_text(encoding="utf-8")
+    assert "c.-à-d." in updated
+    assert "_a capella_" in updated
+    assert "France" in updated
+
+    exit_code_check = main(["check", "--docs-dir", str(docs_dir)])
+    captured_check = capsys.readouterr()
+    assert exit_code_check == 0
+    assert "Aucune correction nécessaire." in captured_check.out
+
+
+def test_cli_check_missing_directory(tmp_path, capsys):
+    missing = tmp_path / "absent"
+
+    exit_code = main(["check", "--docs-dir", str(missing)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "Directory not found" in captured.err
+
+
+def test_cli_fix_missing_directory(tmp_path, capsys):
+    missing = tmp_path / "absent"
+
+    exit_code = main(["fix", "--docs-dir", str(missing)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "Directory not found" in captured.err
+
+
+def test_cli_fix_reports_no_changes(tmp_path, capsys):
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    (docs_dir / "page.md").write_text("Texte conforme.\n", encoding="utf-8")
+
+    exit_code = main(["fix", "--docs-dir", str(docs_dir)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "Aucune correction appliquée" in captured.out
+
+
+def test_format_relative_handles_external_path(tmp_path):
+    outside = tmp_path / "outer" / "file.md"
+    outside.parent.mkdir(parents=True, exist_ok=True)
+    outside.write_text("x", encoding="utf-8")
+
+    result = cli_module._format_relative(outside, tmp_path / "docs")
+
+    assert result == str(outside)
