@@ -59,6 +59,18 @@ RE_ADMONITION = re.compile(
     r"""(?:\s+"(?P<title>[^"]*)")?\s*$"""
 )
 
+RE_INLINE_SPAN = re.compile(
+    r"<span\b(?P<attrs>[^>]*)>(?P<body>.*?)</span>",
+    re.IGNORECASE | re.DOTALL,
+)
+
+RE_FENCED_CODE = re.compile(
+    r"(^|\n)(?P<fence>`{3,}|~{3,})[^\n]*\n.*?(?<=\n)(?P=fence)[ \t]*",
+    re.DOTALL,
+)
+
+RE_INLINE_CODE = re.compile(r"`[^`\n]+`")
+
 # ---------- Class-based config ----------
 
 
@@ -649,12 +661,12 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
 
         table = Table(
             title="Résumé des avertissements typographiques",
-            title_style="bold bright_white",
-            header_style="bold magenta",
-            show_lines=True,
-            box=box.ROUNDED,
+            title_style="bold grey70",
+            title_justify="left",
+            header_style="bold cyan",
+            highlight=True,
+            box=box.SIMPLE_HEAVY,
             border_style="grey50",
-            row_styles=["grey35", ""],
             pad_edge=False,
             padding=(0, 1),
         )
@@ -693,11 +705,95 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
             )
         print()
 
+    @staticmethod
+    def _shift_warnings(
+        warnings: list[RuleWarning], offset: int
+    ) -> list[RuleWarning]:
+        """Return warnings with their offsets shifted by ``offset``."""
+        if not warnings or offset == 0:
+            return warnings
+        return [
+            RuleWarning(
+                rule=warning.rule,
+                start=warning.start + offset,
+                end=warning.end + offset,
+                message=warning.message,
+                preview=warning.preview,
+            )
+            for warning in warnings
+        ]
+
+    @staticmethod
+    def _markdown_ignore_ranges(markdown: str) -> list[tuple[int, int]]:
+        """Return ranges that should be skipped during Markdown processing."""
+        ranges: list[tuple[int, int]] = []
+
+        for match in RE_INLINE_SPAN.finditer(markdown):
+            attrs = (match.group("attrs") or "").lower()
+            if (
+                "fr-typo-ignore" in attrs
+                or "data-fr-typo" in attrs
+                or "nohighlight" in attrs
+            ):
+                ranges.append((match.start(), match.end()))
+
+        for match in RE_FENCED_CODE.finditer(markdown):
+            start = match.start(0) + (1 if match.group(1) else 0)
+            ranges.append((start, match.end(0)))
+
+        for match in RE_INLINE_CODE.finditer(markdown):
+            ranges.append((match.start(), match.end()))
+
+        if not ranges:
+            return []
+
+        ranges.sort()
+        merged: list[tuple[int, int]] = [ranges[0]]
+        for start, end in ranges[1:]:
+            last_start, last_end = merged[-1]
+            if start <= last_end:
+                merged[-1] = (last_start, max(last_end, end))
+            else:
+                merged.append((start, end))
+        return merged
+
     def _apply_markdown_rules(self, markdown: str, src_path: str) -> str:
         """Run markdown-stage rules and foreign locution handling."""
-        processed, warnings = self._markdown_orchestrator.process(
-            markdown, self._level_for_rule
-        )
+        ignore_ranges = self._markdown_ignore_ranges(markdown)
+
+        if ignore_ranges:
+            processed_chunks: list[str] = []
+            aggregated: list[RuleWarning] = []
+            cursor = 0
+
+            for start, end in ignore_ranges:
+                if start > cursor:
+                    segment = markdown[cursor:start]
+                    segment_processed, segment_warnings = (
+                        self._markdown_orchestrator.process(
+                            segment, self._level_for_rule
+                        )
+                    )
+                    processed_chunks.append(segment_processed)
+                    aggregated.extend(self._shift_warnings(segment_warnings, cursor))
+                processed_chunks.append(markdown[start:end])
+                cursor = end
+
+            if cursor < len(markdown):
+                tail = markdown[cursor:]
+                tail_processed, tail_warnings = self._markdown_orchestrator.process(
+                    tail, self._level_for_rule
+                )
+                processed_chunks.append(tail_processed)
+                aggregated.extend(self._shift_warnings(tail_warnings, cursor))
+
+            processed = "".join(processed_chunks)
+            warnings = aggregated
+        else:
+            processed, warnings = self._markdown_orchestrator.process(
+                markdown, self._level_for_rule
+            )
+
         if warnings:
             for warning in warnings:
                 line, column = self._line_column_for_offset(markdown, warning.start)

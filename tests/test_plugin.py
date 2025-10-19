@@ -5,8 +5,10 @@ import logging
 from types import SimpleNamespace
 
 from bs4 import BeautifulSoup
+import pytest
 
 from mkdocs_french.constants import DEFAULT_ADMONITION_TRANSLATIONS, NBSP, NNBSP
+import mkdocs_french.plugin as plugin_module
 from mkdocs_french.plugin import Level
 from mkdocs_french.rules.base import Rule
 from mkdocs_french.rules.orchestrator import RuleOrchestrator, RuleWarning
@@ -162,7 +164,7 @@ def test_print_summary_with_rich(monkeypatch, plugin_factory):
     monkeypatch.setattr("mkdocs_french.plugin.Table", DummyTable)
     monkeypatch.setattr("mkdocs_french.plugin.Console", DummyConsole)
     monkeypatch.setattr(
-        "mkdocs_french.plugin.box", type("_Box", (), {"ROUNDED": object()})
+        "mkdocs_french.plugin.box", type("_Box", (), {"SIMPLE_HEAVY": object()})
     )
 
     plugin._print_summary()
@@ -447,6 +449,73 @@ def test_on_page_markdown_skips_when_disabled(plugin_factory, page):
     assert plugin.on_page_markdown(markdown_text, page, {}, None) == markdown_text
 
 
+def test_on_page_markdown_span_ignore_suppresses_warnings(
+    plugin_factory, page, caplog
+):
+    plugin = plugin_factory(casse=Level.warn)
+    markdown_text = 'Planète «<span class="fr-typo-ignore">Mars</span>» observée.'
+
+    with caplog.at_level(logging.WARNING, logger="mkdocs.plugins.fr_typo"):
+        plugin.on_page_markdown(markdown_text, page, {}, None)
+
+    assert "Mars" not in caplog.text
+
+
+def test_on_page_markdown_span_ignore_preserves_fix(plugin_factory, page):
+    plugin = plugin_factory(
+        abbreviation=Level.ignore,
+        ordinaux=Level.ignore,
+        ligatures=Level.ignore,
+        casse=Level.fix,
+        spacing=Level.ignore,
+        quotes=Level.ignore,
+        units=Level.ignore,
+        diacritics=Level.ignore,
+    )
+    markdown_text = (
+        "Ce Mardi sera studieux, "
+        'mais <span class="fr-typo-ignore">Mars</span> reste en capitale.'
+    )
+
+    result = plugin.on_page_markdown(markdown_text, page, {}, None)
+
+    assert "Ce mardi" in result
+    assert '<span class="fr-typo-ignore">Mars</span>' in result
+
+
+def test_on_page_markdown_ignores_fenced_code(plugin_factory, page, caplog):
+    plugin = plugin_factory(casse=Level.warn)
+    markdown_text = (
+        "Texte introductif.\n"
+        "```text\n"
+        "Novembre et Mardi seront surévalués.\n"
+        "```\n"
+        "Conclusion.\n"
+    )
+
+    with caplog.at_level(logging.WARNING, logger="mkdocs.plugins.fr_typo"):
+        result = plugin.on_page_markdown(markdown_text, page, {}, None)
+
+    assert "Novembre" not in caplog.text
+    assert "Mardi" not in caplog.text
+    assert "Français" not in caplog.text
+    assert "```text" in result
+
+
+def test_on_page_markdown_ignores_inline_code(plugin_factory, page, caplog):
+    plugin = plugin_factory(casse=Level.warn)
+    markdown_text = (
+        "Les mots comme `Novembre` ou `Mardi` ne doivent pas déclencher d'alerte."
+    )
+
+    with caplog.at_level(logging.WARNING, logger="mkdocs.plugins.fr_typo"):
+        result = plugin.on_page_markdown(markdown_text, page, {}, None)
+
+    assert "Novembre" not in caplog.text
+    assert "Mardi" not in caplog.text
+    assert result == markdown_text
+
+
 def test_on_page_content_applies_spacing_rule(plugin_factory, page):
     plugin = plugin_factory(
         abbreviation=Level.ignore,
@@ -676,6 +745,62 @@ def test_print_summary_plain_fallback(plugin_factory, capsys, monkeypatch):
     output = capsys.readouterr().out
     assert "Résumé des avertissements typographiques" in output
     assert "[dummy] 'docs/page.md:3:2' ->" in output
+
+
+def test_print_summary_rich_table_style(plugin_factory, monkeypatch):
+    if (
+        plugin_module.Table is None
+        or plugin_module.Console is None
+        or plugin_module.box is None
+    ):
+        pytest.skip("rich not available")
+
+    captured: dict[str, object] = {}
+
+    class RecordingTable:
+        def __init__(self, *args, **kwargs) -> None:
+            captured["kwargs"] = dict(kwargs)
+
+        def add_column(self, *args, **kwargs) -> None:  # pragma: no cover - stub
+            pass
+
+        def add_row(self, *args, **kwargs) -> None:  # pragma: no cover - stub
+            pass
+
+    class DummyConsole:
+        def __init__(self) -> None:
+            captured["printed"] = False
+
+        def print(self, table) -> None:
+            captured["printed"] = True
+            captured["table"] = table
+
+    monkeypatch.setattr(plugin_module, "Table", RecordingTable)
+    monkeypatch.setattr(plugin_module, "Console", DummyConsole)
+
+    plugin = plugin_factory(summary=True)
+    plugin._collected_warnings = [
+        {
+            "rule": "dummy",
+            "file": "docs/page.md",
+            "line": 1,
+            "column": 1,
+            "message": "Test",
+            "preview": None,
+        }
+    ]
+
+    plugin._print_summary()
+
+    kwargs = captured["kwargs"]
+    assert kwargs["box"] is plugin_module.box.SIMPLE_HEAVY
+    assert kwargs["header_style"] == "bold cyan"
+    assert kwargs.get("highlight") is True
+    assert kwargs["title_style"] == "bold grey70"
+    assert kwargs.get("title_justify") == "left"
+    assert "row_styles" not in kwargs
+    assert not kwargs.get("show_lines", False)
+    assert captured["printed"] is True
 
 
 def test_functional_spacing_render(plugin_factory, page, render_with_plugin):

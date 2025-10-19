@@ -90,6 +90,38 @@ def test_cli_check_missing_directory(tmp_path, capsys):
     assert "Directory not found" in captured.err
 
 
+def test_cli_build_quiet_mode(monkeypatch, tmp_path, capsys):
+    target = tmp_path / "artifact.gz"
+
+    def fake_build(path: Path | None, *, force: bool, quiet: bool):
+        assert quiet
+        path = path or target
+        path.write_bytes(b"data")
+        return path
+
+    monkeypatch.setattr("mkdocs_french.cli.build_morphalou_artifact", fake_build)
+
+    exit_code = main(["build", "--output", str(target), "--quiet"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert captured.out == ""
+    assert target.exists()
+
+
+def test_cli_build_failure_is_reported(monkeypatch, capsys):
+    def fake_build(path: Path | None, *, force: bool, quiet: bool):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("mkdocs_french.cli.build_morphalou_artifact", fake_build)
+
+    exit_code = main(["build"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "Error: boom" in captured.err
+
+
 def test_cli_fix_missing_directory(tmp_path, capsys):
     missing = tmp_path / "absent"
 

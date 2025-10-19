@@ -17,6 +17,21 @@ Les règles traitées sont :
 - Casse et typographie courante (jours, mois, gentilés en minuscule)
 - Traduction des admonitions standard (warning → Avertissement, etc.)
 
+## Utilisation en ligne de commande
+
+En plus du plugin MkDocs, le module fournit une interface CLI accessible via `python -m mkdocs_french`. Trois sous-commandes sont disponibles :
+
+- `build` génère l’artéfact Morphalou compressé (`morphalou_data.json.gz`). Cette commande accepte `--output`, `--force` et `--quiet` et reflète exactement le script `scripts/build_artifacts.py` utilisé pendant les hooks de packaging.
+- `check` parcourt un dossier (par défaut `docs/`) et liste les corrections qui seraient appliquées, en retournant un code de sortie `1` lorsqu’un fichier doit être ajusté — idéal pour l’intégration dans un pipeline CI.
+- `fix` applique les corrections sur place, réécrit les fichiers Markdown concernés et affiche un récapitulatif des modifications.
+
+```bash
+uv run python -m mkdocs_french check --docs-dir documentation
+uv run python -m mkdocs_french fix   --docs-dir documentation
+```
+
+Utilisez `check` pour bloquer un build CI lorsque des corrections restent à effectuer, puis appliquez `fix` en local avant de committer vos changements.
+
 ## Désactiver les corrections
 
 Le plugin n'interfère pas avec les blocs de code (délimités par des backticks triples) ni avec le mode mathématique. Aucune correction n'est appliquée dans ces contextes. La *front matter* YAML n'est pas non plus modifiée.
@@ -31,13 +46,13 @@ En dehors de ces environnements, il est possible d'ignorer des sections entière
 
     > <!--fr-typo-ignore-->EVEQUE A PAQUES, etc...<!--/fr-typo-ignore-->
 
-2. Utiliser une entrée HTML `<span> ... </span>` pour ignorer une partie d'une ligne :
+2. Utiliser une entrée HTML `<span class="fr-typo-ignore">...</span>` pour ignorer une partie d'une ligne :
 
     ```markdown
-    <span>EVEQUE A PAQUES, etc...</span>
+    <span class="fr-typo-ignore">EVEQUE A PAQUES, etc...</span>
     ```
 
-    > <span>EVEQUE A PAQUES, etc...</span>
+    > <span class="fr-typo-ignore">EVEQUE A PAQUES, etc...</span>
 
 3. Utiliser l'extension `pymdownx.inlinehilite` et utiliser la syntaxe *nohighlight*:
 

@@ -4,7 +4,7 @@ Les mois, jours et gentilés s'écrivent en minuscule en français. Le plugin pe
 
 Par défaut, la remise en majuscule automatique des noms de pays est désactivée : sans contexte, elle entraînait trop de faux positifs. Conservez cette vérification manuellement si vous en avez l'usage.
 
-Cette phrase comporte plusieurs erreurs : Lundi, Lucas est venu ; mais Mardi 5 Novembre, il a rencontré Monsieur Dupont, qui est Français à Paris.
+Cette phrase comporte plusieurs erreurs : <span class="fr-typo-ignore">Lundi</span>, Lucas est venu ; mais <span class="fr-typo-ignore">Mardi</span> 5 <span class="fr-typo-ignore">Novembre</span>, il a rencontré Monsieur Dupont, qui est <span class="fr-typo-ignore">Français</span> à Paris.
 
 Les avertissements sont reportés lors de la compilation :
 
@@ -14,7 +14,7 @@ WARNING -  [fr-typo:casse] index.md: Casse incorrecte pour «Mardi» → «mardi
 WARNING -  [fr-typo:casse] index.md: Casse incorrecte pour «Français» → «français»
 ```
 
-Sans contexte lexical, certains faux positifs restent possibles (par exemple «Mars» quand il désigne la planète). Vérifiez les alertes avant d'appliquer une correction automatique.
+Sans contexte lexical, certains faux positifs restent possibles (par exemple «<span class="fr-typo-ignore">Mars</span>» quand il désigne la planète). Vérifiez les alertes avant d'appliquer une correction automatique.
 
 La configuration est la suivante :
 

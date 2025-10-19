@@ -48,23 +48,39 @@ uv run pytest
 uv run mkdocs serve
 ```
 
-## Données Morphalou pré-générées
+## Utilitaires en ligne de commande
 
-Le plugin ne télécharge plus Morphalou à chaque exécution.
-Il charge un artéfact compressé localisé dans `mkdocs_french/artifacts/morphalou_data.json.gz`.
-L’archive est générée pendant le processus de packaging et livrée dans les wheels publiées.
-Si vous utilisez le dépôt source, générez l’artéfact avant d’exécuter MkDocs.
+Le package expose un exécutable `python -m mkdocs_french` qui regroupe plusieurs sous-commandes utiles dans les pipelines CI comme en local. Les exemples ci-dessous présument un environnement configuré via `uv`.
 
-### Générer les artéfacts
-
-Utilisez la commande suivante (avec l'environnement uv configuré) :
+### `build` — générer les artéfacts Morphalou
 
 ```bash
-uv run python -m mkdocs_french build
+uv run python -m mkdocs_french build [--output chemin] [--force] [--quiet]
 ```
 
-L’option `--force` permet d’écraser un artéfact existant, et `--output` accepte un chemin personnalisé.
-Dans un pipeline CI, exécutez la commande avant MkDocs ; elle ne recrée pas le fichier si celui-ci est déjà présent.
+- Sans `--output`, l’artéfact compressé est écrit dans `mkdocs_french/artifacts/morphalou_data.json.gz`.
+- `--force` écrase un fichier existant ; sans option, rien n’est modifié si l’artéfact est déjà présent.
+- `--quiet` supprime l’affichage de progression.
+
+Le script `scripts/build_artifacts.py` utilise la même logique lors des hooks de packaging, ce qui garantit un résultat cohérent entre vos builds locaux et ceux déclenchés par Poetry.
+
+### `check` — prévisualiser les corrections Markdown
+
+```bash
+uv run python -m mkdocs_french check [--docs-dir docs]
+```
+
+La commande parcourt les fichiers `.md`, liste les corrections qui seraient appliquées et termine avec un code de sortie `1` si des ajustements sont nécessaires. C’est l’option recommandée dans un job CI ou un crochet pré-commit pour conserver l’historique propre sans modifier les sources.
+
+### `fix` — appliquer les corrections en place
+
+```bash
+uv run python -m mkdocs_french fix [--docs-dir docs]
+```
+
+Contrairement à `check`, cette sous-commande réécrit les fichiers Markdown en appliquant les règles du plugin. Un récapitulatif du nombre de changements par fichier est affiché afin de faciliter l’intégration dans vos scripts d’automatisation. Le code de sortie est `0` même lorsqu’aucune correction n’est nécessaire.
+
+> **Astuce :** combinez `check` dans vos workflows automatiques et `fix` lors du développement local pour corriger rapidement les écarts détectés.
 
 ## Comportement de configuration du plugin
 
