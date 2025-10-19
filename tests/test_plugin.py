@@ -128,16 +128,20 @@ def test_print_summary_with_rich(monkeypatch, plugin_factory):
     plugin._collected_warnings = [
         {
             "rule": "spacing",
-            "file": "doc.md",
+            "file": "docs/doc.md",
             "line": 3,
+            "column": 5,
             "message": "Espace fine",
             "preview": ";",
         }
     ]
 
     class DummyTable:
+        instances = []
+
         def __init__(self, *args, **kwargs):
             self.rows = []
+            DummyTable.instances.append(self)
 
         def add_column(self, *args, **kwargs):
             return None
@@ -146,8 +150,11 @@ def test_print_summary_with_rich(monkeypatch, plugin_factory):
             self.rows.append(args)
 
     class DummyConsole:
+        instances = []
+
         def __init__(self):
             self.rendered = []
+            DummyConsole.instances.append(self)
 
         def print(self, table):
             self.rendered.append(table)
@@ -160,7 +167,9 @@ def test_print_summary_with_rich(monkeypatch, plugin_factory):
 
     plugin._print_summary()
 
-    assert isinstance(plugin._collected_warnings[0], dict)
+    assert DummyTable.instances
+    table_instance = DummyTable.instances[0]
+    assert table_instance.rows[0][1] == "'docs/doc.md:3:5'"
 
 
 def test_print_plain_summary_outputs(capsys, plugin_factory):
@@ -168,8 +177,9 @@ def test_print_plain_summary_outputs(capsys, plugin_factory):
     plugin._collected_warnings = [
         {
             "rule": "spacing",
-            "file": "doc.md",
+            "file": "docs/doc.md",
             "line": 2,
+            "column": 1,
             "message": "Espace fine",
             "preview": ";",
         }
@@ -179,6 +189,7 @@ def test_print_plain_summary_outputs(capsys, plugin_factory):
 
     captured = capsys.readouterr()
     assert "Résumé des avertissements" in captured.out
+    assert "[spacing] 'docs/doc.md:2:1' ->" in captured.out
 
 
 def test_orchestrator_ignore_returns_original_text():
@@ -232,14 +243,15 @@ def test_emit_warnings_logs_and_collects_summary(plugin_factory, caplog):
     )
 
     with caplog.at_level(logging.WARNING, logger="mkdocs.plugins.fr_typo"):
-        plugin._emit_warnings([warning], "docs/page.md", 7)
+        plugin._emit_warnings([warning], "docs/doc.md", 7, 3)
 
-    assert "Message de test" in caplog.text
+    assert "'docs/doc.md:7:3'" in caplog.text
     assert plugin._collected_warnings == [
         {
             "rule": "dummy",
-            "file": "docs/page.md",
+            "file": "docs/doc.md",
             "line": 7,
+            "column": 3,
             "message": "Message de test",
             "preview": "fixe",
         }
@@ -279,9 +291,9 @@ def test_apply_markdown_rules_emits_warning_summary(plugin_factory, caplog):
         updated = plugin._apply_markdown_rules("AA\nBB", "docs/source.md")
 
     assert updated == "AA\nBB"
-    assert "Problème détecté" in caplog.text
+    assert "'docs/source.md:1:3'" in caplog.text
     assert plugin._collected_warnings
-    assert any(entry["line"] == 1 for entry in plugin._collected_warnings)
+    assert any(entry["line"] == 1 and entry["column"] == 3 for entry in plugin._collected_warnings)
 
 
 def test_apply_foreign_markdown_warn_tracks_page(plugin_factory, caplog):
@@ -294,8 +306,14 @@ def test_apply_foreign_markdown_warn_tracks_page(plugin_factory, caplog):
         )
 
     assert text == "Le chanteur a capella."
-    assert "Locution étrangère non italique" in caplog.text
+    start = text.index("a capella")
+    line, column = plugin._line_column_for_offset(text, start)
+    assert f"'docs/song.md:{line}:{column}'" in caplog.text
     assert "docs/song.md" in plugin._foreign_processed_pages
+    assert any(
+        entry["line"] == line and entry["column"] == column
+        for entry in plugin._collected_warnings
+    )
 
 
 def test_foreign_replacements_skip_existing_markup(plugin_factory):
@@ -353,6 +371,7 @@ def test_apply_foreign_in_html_warn_mode(plugin_factory, page, caplog):
         result = plugin.on_page_content(html, page, {}, None)
 
     assert "Locution étrangère non italique" in caplog.text
+    assert "docs/index.md" in caplog.text
     assert "<em>" not in result
 
 
@@ -590,6 +609,7 @@ def test_on_page_content_foreign_warns_without_fix(plugin_factory, page, caplog)
         plugin.on_page_content("<p>Il a agi de facto.</p>", page, {}, None)
 
     assert "Locution étrangère non italique : «de facto»" in caplog.text
+    assert "docs/index.md" in caplog.text
 
 
 def test_on_page_content_keeps_sentence_start_capital(
@@ -641,6 +661,7 @@ def test_print_summary_plain_fallback(plugin_factory, capsys, monkeypatch):
             "rule": "dummy",
             "file": "docs/page.md",
             "line": 3,
+            "column": 2,
             "message": "Alerte",
             "preview": "texte",
         }
@@ -654,7 +675,7 @@ def test_print_summary_plain_fallback(plugin_factory, capsys, monkeypatch):
 
     output = capsys.readouterr().out
     assert "Résumé des avertissements typographiques" in output
-    assert "[dummy] docs/page.md (Ligne 3)" in output
+    assert "[dummy] 'docs/page.md:3:2' ->" in output
 
 
 def test_functional_spacing_render(plugin_factory, page, render_with_plugin):

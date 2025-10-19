@@ -109,6 +109,7 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         self._extra_css: set[Path] = set()
         self._admonition_translations: dict[str, str] = {}
         self._site_dir: Path | None = None
+        self._docs_dir: Path = Path.cwd() / "docs"
         self._markdown_orchestrator = RuleOrchestrator(build_markdown_rules())
         self._html_orchestrator = RuleOrchestrator(build_html_rules())
         self._foreign_processed_pages: set[str] = set()
@@ -164,6 +165,20 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
             setattr(config, "extra_css", extra_css)
 
         self._site_dir = site_dir
+        docs_dir_attr = config.docs_dir if hasattr(config, "docs_dir") else None
+        if isinstance(docs_dir_attr, str):
+            docs_dir_value = docs_dir_attr
+        else:
+            docs_dir_raw = (
+                config_mapping.get("docs_dir", "docs")
+                if config_mapping is not None
+                else getattr(config, "docs_dir", "docs")
+            )
+            docs_dir_value = str(docs_dir_raw)
+        docs_dir_path = Path(docs_dir_value)
+        if not docs_dir_path.is_absolute():
+            docs_dir_path = (Path.cwd() / docs_dir_path).resolve()
+        self._docs_dir = docs_dir_path
         for entry in self._extra_css:
             css_name = "css/" + Path(entry).name
             if css_name not in extra_css:
@@ -187,6 +202,7 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         warnings: list[RuleWarning],
         src_path: str,
         cur_line: int | None,
+        cur_column: int | None = None,
     ) -> None:
         """Log warnings and optionally store them for later summary output.
 
@@ -197,22 +213,24 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         """
         if not warnings:
             return
-        line_info = f"{src_path}:{cur_line}" if cur_line else src_path
+        normalized_path = self._normalize_path(src_path)
+        location = self._format_location(normalized_path, cur_line, cur_column)
 
         for warning in warnings:
             prev_txt = f" → «{warning.preview}»" if warning.preview else ""
             log.warning(
                 "[fr-typo:%s] %s: %s%s",
                 warning.rule.name,
-                line_info,
+                location,
                 warning.message,
                 prev_txt,
             )
             if self.config.summary:
                 warning_entry: WarningEntry = {
                     "rule": warning.rule.name,
-                    "file": src_path,
+                    "file": normalized_path,
                     "line": cur_line,
+                    "column": cur_column,
                     "message": warning.message,
                     "preview": warning.preview,
                 }
@@ -225,17 +243,84 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
             return "<page>"
         file_data = cast(Any, file_obj)
         raw_src = cast(str | None, getattr(file_data, "src_path", None))
-        if raw_src:
-            return str(raw_src)
         abs_src = cast(str | None, getattr(file_data, "abs_src_path", None))
-        if abs_src:
-            return str(abs_src)
-        return "<page>"
+        normalized = self._normalize_path(raw_src, abs_src)
+        return normalized
 
     @staticmethod
     def _line_number_for_offset(text: str, index: int) -> int:
         """Estimate the 1-based line number for a given string offset."""
-        return text.count("\n", 0, index) + 1
+        line, _ = FrenchPlugin._line_column_for_offset(text, index)
+        return line
+
+    @staticmethod
+    def _line_column_for_offset(text: str, index: int) -> tuple[int, int]:
+        """Return the 1-based line and column for a string offset."""
+        line = text.count("\n", 0, index) + 1
+        last_newline = text.rfind("\n", 0, index)
+        if last_newline == -1:
+            column = index + 1
+        else:
+            column = index - last_newline
+        return line, column
+
+    def _normalize_path(
+        self, raw_path: str | Path | None, abs_path: str | Path | None = None
+    ) -> str:
+        """Return a path relative to the current working directory whenever possible."""
+
+        if raw_path in (None, "", "<page>") and abs_path in (None, ""):
+            return "<page>"
+
+        candidates: list[Path] = []
+
+        docs_dir = getattr(self, "_docs_dir", None)
+        if raw_path and raw_path not in ("", "<page>"):
+            raw_candidate = Path(str(raw_path))
+            if raw_candidate.is_absolute():
+                candidates.append(raw_candidate)
+            else:
+                if docs_dir:
+                    docs_dir_path = Path(docs_dir)
+                    docs_dir_name = docs_dir_path.name
+                    if raw_candidate.parts and raw_candidate.parts[0] == docs_dir_name:
+                        candidates.append(raw_candidate)
+                    else:
+                        candidates.append(docs_dir_path / raw_candidate)
+                candidates.append(raw_candidate)
+
+        if abs_path and str(abs_path):
+            abs_candidate = Path(str(abs_path))
+            candidates.append(abs_candidate)
+
+        cwd = Path.cwd()
+        for candidate in candidates:
+            if not candidate.is_absolute():
+                return str(candidate)
+            candidate_resolved = candidate.resolve()
+            try:
+                relative = candidate_resolved.relative_to(cwd)
+                return str(relative)
+            except ValueError:
+                continue
+
+        if candidates:
+            candidate = candidates[0]
+            return str(candidate.resolve() if candidate.is_absolute() else candidate)
+
+        return "<page>"
+
+    def _format_location(
+        self, path: str, line: int | None, column: int | None
+    ) -> str:
+        """Format a path with optional line and column for CLI navigation."""
+        normalized = self._normalize_path(path)
+        location = normalized
+        if line is not None:
+            location += f":{line}"
+            if column is not None:
+                location += f":{column}"
+        return f"'{location}'"
 
     def on_page_content(
         self,
@@ -527,7 +612,13 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
             current = new_child
         return True, text
 
-    def _log_foreign_warning(self, phrase: str, src_path: str) -> None:
+    def _log_foreign_warning(
+        self,
+        phrase: str,
+        src_path: str,
+        line: int | None = None,
+        column: int | None = None,
+    ) -> None:
         """Record a warning for a non-italicized foreign locution.
 
         Args:
@@ -535,13 +626,16 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
             src_path: Page path used when logging the warning.
         """
         message = f"Locution étrangère non italique : «{phrase}»"
-        log.warning("[fr-typo:foreign] %s: %s", src_path, message)
+        normalized_path = self._normalize_path(src_path)
+        location = self._format_location(normalized_path, line, column)
+        log.warning("[fr-typo:foreign] %s: %s", location, message)
         if self.config.summary:
             self._collected_warnings.append(
                 {
                     "rule": "foreign",
-                    "file": src_path,
-                    "line": None,
+                    "file": normalized_path,
+                    "line": line,
+                    "column": column,
                     "message": message,
                     "preview": phrase,
                 }
@@ -565,16 +659,17 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
             padding=(0, 1),
         )
         table.add_column("Règle", style="cyan", no_wrap=True)
-        table.add_column("Fichier", style="green")
-        table.add_column("Ligne", justify="right", style="yellow")
+        table.add_column("Emplacement", style="green")
         table.add_column("Message", style="white")
         table.add_column("Suggestion", style="dim")
 
         for entry in self._collected_warnings:
-            line = str(entry["line"]) if entry["line"] else "—"
+            location = self._format_location(
+                entry["file"], entry.get("line"), entry.get("column")
+            )
             suggestion = f"«{entry['preview']}»" if entry["preview"] else ""
             table.add_row(
-                entry["rule"], entry["file"], line, entry["message"], suggestion
+                entry["rule"], location, entry["message"], suggestion
             )
 
         console = Console()
@@ -587,15 +682,17 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         print("\n" + header)
         print("-" * len(header))
         for entry in self._collected_warnings:
-            line = f"Ligne {entry['line']}" if entry["line"] else "Ligne —"
+            location = self._format_location(
+                entry["file"], entry.get("line"), entry.get("column")
+            )
             suggestion = (
                 f" | Suggestion: «{entry['preview']}»" if entry["preview"] else ""
             )
             print(
-                f"[{entry['rule']}] {entry['file']} "
-                f"({line}) -> {entry['message']}{suggestion}"
+                f"[{entry['rule']}] {location} -> {entry['message']}{suggestion}"
             )
         print()
+
     def _apply_markdown_rules(self, markdown: str, src_path: str) -> str:
         """Run markdown-stage rules and foreign locution handling."""
         processed, warnings = self._markdown_orchestrator.process(
@@ -603,8 +700,8 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
         )
         if warnings:
             for warning in warnings:
-                line = self._line_number_for_offset(markdown, warning.start)
-                self._emit_warnings([warning], src_path, line)
+                line, column = self._line_column_for_offset(markdown, warning.start)
+                self._emit_warnings([warning], src_path, line, column)
         if processed != markdown:
             markdown = processed
 
@@ -666,8 +763,9 @@ class FrenchPlugin(BasePlugin[FrenchPluginConfig]):
             return markdown
 
         if level == Level.warn:
-            for _, _, phrase, _ in replacements:
-                self._log_foreign_warning(phrase, src_path)
+            for start, _, phrase, _ in replacements:
+                line, column = self._line_column_for_offset(markdown, start)
+                self._log_foreign_warning(phrase, src_path, line, column)
             if src_path != "<page>":
                 self._foreign_processed_pages.add(src_path)
             return markdown

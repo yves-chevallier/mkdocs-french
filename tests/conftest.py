@@ -83,6 +83,7 @@ def plugin_factory():
         plugin.config = base_config
         plugin._collected_warnings = []
         plugin._admonition_translations = DEFAULT_ADMONITION_TRANSLATIONS.copy()
+        plugin._docs_dir = Path.cwd() / "docs"
         return plugin
 
     return factory
